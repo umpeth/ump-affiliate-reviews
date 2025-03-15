@@ -1,0 +1,290 @@
+type Storefront @entity {
+  id: Bytes! # storefront address
+  storefrontAddress: Bytes! @index(unique: true)
+  owner: Bytes!
+  erc1155Token: Bytes!
+  arbiter: Bytes!
+  escrowFactory: Bytes!
+  minSettleTime: BigInt!
+  settleDeadline: BigInt!
+  ready: Boolean!
+  seaport: Bytes!
+  createdAt: BigInt!
+  createdAtBlock: BigInt!
+  creationTx: Bytes!
+  listings: [TokenListing!]! @derivedFrom(field: "storefront")
+  orders: [Order!]! @derivedFrom(field: "storefront")
+  isAffiliateEnabled: Boolean!
+  affiliateVerifier: Bytes
+  
+  # Review-related fields
+  totalRating: BigInt!
+  reviewCount: BigInt!
+  reviews: [Review!]! @derivedFrom(field: "storefront")
+}
+
+type TokenListing @entity {
+  id: ID!
+  storefront: Storefront!
+  tokenId: BigInt!
+  price: BigInt!
+  paymentToken: Bytes!
+  listingTime: BigInt!
+  active: Boolean!
+  createdAt: BigInt!
+  createdAtBlock: BigInt!
+  creationTx: Bytes!
+  lastUpdateAt: BigInt!
+  lastUpdateTx: Bytes!
+  tokenURI: String
+  contractURI: String  
+  tokenMetadata: ERC1155TokenMetadata
+  contractMetadata: ERC1155ContractMetadata
+  affiliateFee: Int! # In basis points (0-10000)
+}
+
+type Order @entity {
+  id: Bytes! # transaction hash
+  buyer: Bytes!
+  seller: Bytes! 
+  storefront: Storefront!
+  tokenId: BigInt!
+  amount: BigInt!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  
+  # Reference to escrow contract
+  escrowContract: Bytes
+  
+  # Reference to sale attestation
+  saleAttestation: SaleAttestation @derivedFrom(field: "order")
+  
+  # Affiliate-related fields
+  affiliate: Bytes
+  affiliateShare: Int
+}
+
+type SaleAttestation @entity(immutable: true) {
+  id: Bytes! # attestation UID
+  transactionHash: Bytes! # references Order.id
+  attestationTxHash: Bytes! # hash of the attestation transaction
+  order: Order! 
+  buyer: Bytes! # From sale event parameters
+  seller: Bytes! # From sale event parameters
+  storefront: Bytes!
+  escrowContract: Bytes!
+  storefrontContract: Bytes!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  reviews: [Review!]! @derivedFrom(field: "saleAttestation")
+}
+
+type Review @entity(immutable: true) {
+  id: Bytes! # attestation UID 
+  saleAttestation: SaleAttestation!
+  reviewer: Bytes!
+  reviewType: String! # "buyer" or "seller"
+  storefront: Storefront! # For easy querying of storefront reviews
+  overallRating: Int! # 0-5
+  qualityRating: Int! # 0-5
+  communicationRating: Int! # 0-5
+  deliveryRating: Int! # 0-5
+  packagingRating: Int! # 0-5
+  asDescribed: Boolean!
+  reviewText: String!
+  timestamp: BigInt!
+  blockNumber: BigInt! 
+}
+
+type OrderEscrow @entity {
+  id: ID!
+  escrowAddress: Bytes!
+  payee: Bytes!
+  storefront: Bytes!
+  arbiter: Bytes!
+  isDisputed: Boolean!
+  isRefunded: Boolean!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+  payments: [OrderPayment!]! @derivedFrom(field: "escrow")
+  settledEvents: [Settled!]! @derivedFrom(field: "escrow")
+  refundedEvents: [Refunded!]! @derivedFrom(field: "escrow")
+  disputedEvents: [Disputed!]! @derivedFrom(field: "escrow")
+  disputeRemovedEvents: [DisputeRemoved!]! @derivedFrom(field: "escrow")
+  disputeResolvedEvents: [DisputeResolved!]! @derivedFrom(field: "escrow")
+  escapeAddressSetEvents: [EscapeAddressSet!]! @derivedFrom(field: "escrow")
+  escapedEvents: [Escaped!]! @derivedFrom(field: "escrow")
+  arbiterChangeEvents: [ArbiterChange!]! @derivedFrom(field: "escrow")
+  affiliate: Bytes
+  affiliateShare: Int
+  
+  # Link to order
+  order: Order
+}
+
+type OrderPayment @entity {
+  id: ID!
+  escrow: OrderEscrow!
+  payer: Bytes!
+  settleDeadline: BigInt!
+  orderFulfilled: OrderFulfilled
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type ArbiterChange @entity {
+  id: ID!
+  escrow: OrderEscrow!
+  oldArbiter: Bytes!
+  proposedArbiter: Bytes!
+  newArbiter: Bytes
+  approved: Boolean!
+  approver: Bytes
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type Settled @entity {
+  id: ID!
+  escrow: OrderEscrow!
+  to: Bytes!
+  token: Bytes!
+  amount: BigInt!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type Refunded @entity {
+  id: ID!
+  escrow: OrderEscrow!
+  to: Bytes!
+  token: Bytes!
+  amount: BigInt!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type Disputed @entity {
+  id: ID!
+  escrow: OrderEscrow!
+  disputeInitiator: Bytes!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type DisputeRemoved @entity {
+  id: ID!
+  escrow: OrderEscrow!
+  disputeRemover: Bytes!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type DisputeResolved @entity {
+  id: ID!
+  escrow: OrderEscrow!
+  resolver: Bytes!
+  settled: Boolean!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type EscapeAddressSet @entity {
+  id: ID!
+  escrow: OrderEscrow!
+  escapeAddress: Bytes!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type Escaped @entity {
+  id: ID!
+  escrow: OrderEscrow!
+  to: Bytes!
+  token: Bytes!
+  amount: BigInt!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type ERC1155ContractMetadata @entity {
+  id: ID!
+  name: String
+  description: String
+  image: String
+  externalLink: String
+  rawJson: String!
+}
+
+type ERC1155TokenMetadata @entity {
+  id: ID!
+  rawJson: String!
+  rawEncodedJson: String!
+}
+
+type OrderFulfilled @entity {
+  id: ID!
+  orderHash: Bytes!
+  offerer: Bytes!
+  zone: Bytes!
+  recipient: Bytes!
+  offer: [OfferItem!]!
+  consideration: [ConsiderationItem!]!
+  payment: OrderPayment
+  erc1155ContractURI: String
+  erc1155TokenURI: String
+  contractMetadata: ERC1155ContractMetadata
+  tokenMetadata: ERC1155TokenMetadata
+  encryptedData: Bytes
+  ephemeralPublicKey: Bytes
+  iv: Bytes
+  verificationHash: Bytes
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+  affiliate: Bytes
+  affiliateShare: Int
+}
+
+type OfferItem @entity {
+  id: ID!
+  orderFulfilled: OrderFulfilled!
+  itemType: BigInt!
+  token: Bytes!
+  identifier: BigInt!
+  amount: BigInt!
+}
+
+type ConsiderationItem @entity {
+  id: ID!
+  orderFulfilled: OrderFulfilled!
+  itemType: BigInt!
+  token: Bytes!
+  identifier: BigInt!
+  amount: BigInt!
+  recipient: Bytes!
+}
+
+type _Schema_ @fulltext(
+  name: "reviewSearch"
+  language: en
+  algorithm: rank
+  include: [
+    {
+      entity: "Review",
+      fields: [
+        { name: "reviewText" }
+      ]
+    }
+  ]
+)

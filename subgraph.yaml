@@ -1,0 +1,376 @@
+specVersion: 0.0.5
+description: Unified Storefront, Affiliate, and Reviews Subgraph
+schema:
+  file: ./schema.graphql
+dataSources:
+  - kind: ethereum
+    name: EscrowFactory
+    network: base
+    source:
+      address: "0x04e6654D571AcF88Edb26d4FA5ff9E3CA6209dF7"
+      abi: EscrowFactory
+      startBlock: 22665452 
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - OrderEscrow
+      abis:
+        - name: EscrowFactory
+          file: ./abis/EscrowFactory.json
+        - name: AffiliateEscrow
+          file: ./abis/AffiliateEscrow.json
+      eventHandlers:
+        - event: EscrowCreated(indexed address,indexed address,indexed address,address)
+          handler: handleEscrowCreated
+      file: ./src/escrow-factory.ts
+
+  - kind: ethereum
+    name: SimpleERC1155StorefrontFactory2
+    network: base
+    source:
+      address: "0xbe203eCCB0507e4558A7990271d59Cd6D9ceb1bA"
+      abi: SimpleERC1155StorefrontFactoryV2
+      startBlock: 22665452  
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Storefront
+      abis:
+        - name: SimpleERC1155StorefrontFactoryV2
+          file: ./abis/SimpleERC1155StorefrontFactoryV2.json
+        - name: SimpleERC1155StorefrontV2
+          file: ./abis/SimpleERC1155StorefrontV2.json
+      eventHandlers:
+        - event: StorefrontCreated(indexed address,indexed address,address,address)
+          handler: handleStorefrontCreatedV2
+      file: ./src/storefront-factory-v2.ts
+
+  - kind: ethereum
+    name: Seaport
+    network: base
+    source:
+      address: "0x0000000000000068F116a894984e2DB1123eB395"
+      abi: Seaport
+      startBlock: 22665452
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - OrderFulfilled
+        - OfferItem
+        - ConsiderationItem
+      abis:
+        - name: Seaport
+          file: ./abis/SimplifiedSeaport.json
+        - name: ReceiptERC1155
+          file: ./abis/ReceiptERC1155.json        
+      eventHandlers:
+        - event: OrderFulfilled(bytes32,indexed address,indexed address,address,(uint8,address,uint256,uint256)[],(uint8,address,uint256,uint256,address)[])
+          handler: handleOrderFulfilled
+      file: ./src/seaport.ts
+
+  - kind: ethereum
+    name: SimpleERC1155StorefrontFactory
+    network: base
+    source:
+      address: "0x3386E47e77fC2784C79A99db0c0Bb7CdB4525C52"
+      abi: SimpleERC1155StorefrontFactory
+      startBlock: 22665452  
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Storefront
+      abis:
+        - name: SimpleERC1155StorefrontFactory
+          file: ./abis/SimpleERC1155StorefrontFactory.json
+        - name: SimpleERC1155Storefront
+          file: ./abis/SimpleERC1155Storefront.json
+      eventHandlers:
+        - event: StorefrontCreated(indexed address,indexed address,address)
+          handler: handleStorefrontCreated
+      file: ./src/storefront-factory.ts
+
+  - kind: ethereum
+    name: AffiliateERC1155StorefrontFactory
+    network: base
+    source:
+      address: "0x59321B6B3AA8573DD33A6314cb48C6849Cd55C72" 
+      abi: AffiliateERC1155StorefrontFactory
+      startBlock: 26603602 
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Storefront
+      abis:
+        - name: AffiliateERC1155StorefrontFactory
+          file: ./abis/AffiliateERC1155StorefrontFactory.json
+        - name: AffiliateERC1155Storefront
+          file: ./abis/AffiliateERC1155Storefront.json
+      eventHandlers:
+        - event: StorefrontCreated(indexed address,indexed address,address,address,address)
+          handler: handleAffiliateStorefrontCreated
+      file: ./src/affiliate-storefront-factory.ts
+
+  - kind: ethereum
+    name: AffiliateEscrowFactory
+    network: base
+    source:
+      address: "0xE07c41Bc76A8B56ad7E996cF60A3dDeD96ca575D"
+      abi: AffiliateEscrowFactory
+      startBlock: 26603602
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - OrderEscrow
+      abis:
+        - name: AffiliateEscrowFactory
+          file: ./abis/AffiliateEscrowFactory.json
+        - name: AffiliateEscrow
+          file: ./abis/AffiliateEscrow.json
+      eventHandlers:
+        - event: AffiliateEscrowCreated(indexed address,indexed address,indexed address,address)
+          handler: handleAffiliateEscrowCreated
+      file: ./src/affiliate-escrow-factory.ts
+
+  - kind: ethereum
+    name: SaleResolver
+    network: base
+    source:
+      address: "0xD7dd33f5815E499DA3DeaB5C812489c5e454eD7E"
+      abi: SaleAttestationResolver
+      startBlock: 25252720
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - SaleAttestation
+      abis:
+        - name: SaleAttestationResolver
+          file: ./abis/SaleAttestationResolver.json
+      eventHandlers:
+        - event: SaleAttested(indexed bytes32,indexed address,indexed address,bytes32,address,address)
+          handler: handleSaleAttested
+      file: ./src/mappings/attestations.ts
+
+  - kind: ethereum
+    name: ReviewResolver
+    network: base
+    source:
+      address: "0xB09d28897dB473b66A31a3659ae5BA75A2Ad9703"  
+      abi: ReviewResolver
+      startBlock: 25252720
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Review
+      abis:
+        - name: ReviewResolver
+          file: ./abis/ReviewResolver.json
+      eventHandlers:
+        - event: ReviewSubmitted(indexed bytes32,indexed bytes32,indexed address,address,uint8,uint8,uint8,uint8,uint8,bool,string)
+          handler: handleReviewSubmitted
+      file: ./src/mappings/attestations.ts
+
+templates:
+  - name: AffiliateERC1155Storefront
+    kind: ethereum/contract
+    network: base
+    source:
+      abi: AffiliateERC1155Storefront
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      file: ./src/storefront.ts
+      entities:
+        - TokenListing
+        - Order
+      abis:
+        - name: AffiliateERC1155Storefront
+          file: ./abis/AffiliateERC1155Storefront.json
+        - name: ReceiptERC1155
+          file: ./abis/ReceiptERC1155.json
+      eventHandlers:
+        - event: ListingAdded(indexed uint256,uint256,indexed address,uint16)
+          handler: handleAffiliateListingAdded
+        - event: ListingUpdated(indexed uint256,uint256,uint256,address,indexed address,uint16,uint16)
+          handler: handleAffiliateListingUpdated
+        - event: ListingRemoved(indexed uint256,uint256,indexed address,uint16)
+          handler: handleAffiliateListingRemoved
+        - event: StorefrontOrderFulfilled(uint256,uint256,address,address,uint256,address,address,uint16,bytes,bytes,bytes,bytes)
+          handler: handleAffiliateOrderFulfilled
+          
+  - name: AffiliateEscrow
+    kind: ethereum/contract
+    network: base
+    source:
+      abi: AffiliateEscrow
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      file: ./src/affiliate-escrow.ts
+      entities:
+        - OrderEscrow
+        - OrderPayment
+        - Settled
+        - Refunded
+        - Disputed
+        - DisputeResolved
+        - EscapeAddressSet
+        - Escaped
+        - ArbiterChange
+      abis:
+        - name: AffiliateEscrow
+          file: ./abis/AffiliateEscrow.json
+      eventHandlers:
+        - event: PayerSet(indexed address,uint256)
+          handler: handlePayerSet
+        - event: Settled(indexed address,indexed address,address,uint256,uint256)
+          handler: handleAffiliateSettled
+        - event: Refunded(indexed address,address,uint256)
+          handler: handleRefunded
+        - event: Disputed(indexed address)
+          handler: handleDisputed
+        - event: DisputeRemoved(indexed address)
+          handler: handleDisputeRemoved
+        - event: DisputeResolved(indexed address,bool)
+          handler: handleDisputeResolved
+        - event: EscapeAddressSet(indexed address)
+          handler: handleEscapeAddressSet
+        - event: Escaped(indexed address,address,uint256)
+          handler: handleEscaped
+        - event: ArbiterChangeProposed(indexed address,indexed address)
+          handler: handleArbiterChangeProposed
+        - event: ArbiterChangeApproved(indexed address,indexed address,indexed address)
+          handler: handleArbiterChangeApproved
+
+  - name: SimpleEscrow
+    kind: ethereum/contract
+    network: base
+    source:
+      abi: SimpleEscrow
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      file: ./src/simple-escrow.ts
+      entities:
+        - OrderEscrow
+        - OrderPayment
+        - Settled
+        - Refunded
+        - Disputed
+        - DisputeResolved
+        - EscapeAddressSet
+        - Escaped
+        - ArbiterChange
+      abis:
+        - name: SimpleEscrow
+          file: ./abis/SimpleEscrow.json
+      eventHandlers:
+        - event: PayerSet(indexed address,uint256)
+          handler: handlePayerSet
+        - event: Settled(indexed address,address,uint256)
+          handler: handleSettled
+        - event: Refunded(indexed address,address,uint256)
+          handler: handleRefunded
+        - event: Disputed(indexed address)
+          handler: handleDisputed
+        - event: DisputeRemoved(indexed address)
+          handler: handleDisputeRemoved
+        - event: DisputeResolved(indexed address,bool)
+          handler: handleDisputeResolved
+        - event: EscapeAddressSet(indexed address)
+          handler: handleEscapeAddressSet
+        - event: Escaped(indexed address,address,uint256)
+          handler: handleEscaped
+        - event: ArbiterChangeProposed(indexed address,indexed address)
+          handler: handleArbiterChangeProposed
+        - event: ArbiterChangeApproved(indexed address,indexed address,indexed address)
+          handler: handleArbiterChangeApproved
+
+  - name: SimpleERC1155Storefront
+    kind: ethereum/contract
+    network: base
+    source:
+      abi: SimpleERC1155Storefront
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      file: ./src/storefront.ts
+      entities:
+        - TokenListing
+        - Order
+      abis:
+        - name: SimpleERC1155Storefront
+          file: ./abis/SimpleERC1155Storefront.json
+        - name: ReceiptERC1155
+          file: ./abis/ReceiptERC1155.json
+      eventHandlers:
+        - event: ListingAdded(indexed uint256,uint256,indexed address)
+          handler: handleListingAddedSimple
+        - event: ListingUpdated(indexed uint256,uint256,uint256,address,indexed address)
+          handler: handleListingUpdatedSimple
+        - event: ListingRemoved(indexed uint256,uint256,indexed address)
+          handler: handleListingRemovedSimple
+        - event: OrderFulfilled(uint256,uint256,address,address,uint256,address)
+          handler: handleSimpleOrderFulfilled
+        - event: ReadyStateChanged(bool)
+          handler: handleReadyStateChanged
+        - event: SettleDeadlineUpdated(uint256)
+          handler: handleSettleDeadlineUpdated
+        - event: ERC1155TokenAddressChanged(indexed address,indexed address)
+          handler: handleERC1155TokenAddressChanged
+
+  - name: SimpleERC1155StorefrontV2
+    kind: ethereum/contract
+    network: base
+    source:
+      abi: SimpleERC1155StorefrontV2
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      file: ./src/storefront.ts
+      entities:
+        - TokenListing
+        - Order
+      abis:
+        - name: SimpleERC1155StorefrontV2
+          file: ./abis/SimpleERC1155StorefrontV2.json
+        - name: ReceiptERC1155
+          file: ./abis/ReceiptERC1155.json
+      eventHandlers:
+        - event: ListingAdded(indexed uint256,uint256,indexed address)
+          handler: handleListingAddedSimple
+        - event: ListingUpdated(indexed uint256,uint256,uint256,address,indexed address)
+          handler: handleListingUpdatedSimple
+        - event: ListingRemoved(indexed uint256,uint256,indexed address)
+          handler: handleListingRemovedSimple
+        - event: StorefrontOrderFulfilled(uint256,uint256,address,address,uint256,address,bytes,bytes,bytes,bytes)   
+          handler: handleStorefrontOrderFulfilled
+        - event: ReadyStateChanged(bool)
+          handler: handleReadyStateChanged
+        - event: SettleDeadlineUpdated(uint256)
+          handler: handleSettleDeadlineUpdated
+        - event: ERC1155TokenAddressChanged(indexed address,indexed address)
+          handler: handleERC1155TokenAddressChanged
+
+features:
+  - fullTextSearch

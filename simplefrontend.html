@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Escrow Data Viewer</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 1000px; margin: 0 auto; padding: 20px; }
+        input, button { font-size: 16px; padding: 5px; }
+        h2 { margin-top: 20px; }
+        pre { background-color: #f0f0f0; padding: 10px; overflow-x: auto; }
+        .escrow-item { margin-bottom: 20px; border: 1px solid #ccc; padding: 10px; border-radius: 5px; }
+        .escrow-address { color: blue; text-decoration: underline; cursor: pointer; }
+        .event { padding: 5px; margin: 5px 0; border-radius: 3px; }
+        .event-PayerSet { background-color: #E6E6FA; }
+        .event-Settled { background-color: #90EE90; }
+        .event-Refunded { background-color: #FFB6C1; }
+        .event-Disputed { background-color: #FFA07A; }
+        .event-DisputeResolved { background-color: #87CEFA; }
+        .event-EscapeAddressSet { background-color: #F0E68C; }
+        .event-Escaped { background-color: #FFD700; }
+    </style>
+</head>
+<body>
+    <h1>Escrow Data Viewer</h1>
+    <input type="text" id="addressInput" placeholder="Enter address">
+    <button onclick="fetchData()">Fetch Data</button>
+
+    <h2>Orders Placed</h2>
+    <div id="ordersPlaced"></div>
+
+    <h2>Orders Sold</h2>
+    <div id="ordersSold"></div>
+
+    <h2>Escrow Agent</h2>
+    <div id="escrowAgent"></div>
+    <script>
+        const SUBGRAPH_URL = 'https://gateway.thegraph.com/api/77c0b7efedda09181cd4f52989e34ed5/subgraphs/id/36nzwrys8epy3HGehmnt7SewXsq1UznLJGZx6BAtZh22';
+    
+        async function fetchData() {
+            const address = document.getElementById('addressInput').value;
+            const query = `
+                query GetEscrowData($address: Bytes!) {
+                    escrowCreatedAsPayee: escrowCreateds(where: {payee: $address}, first: 1000) {
+                        escrowAddress
+                        payee
+                        storefront
+                        escrowAgent
+                    }
+                    escrowCreatedAsEscrowAgent: escrowCreateds(where: {escrowAgent: $address}, first: 1000) {
+                        escrowAddress
+                        payee
+                        storefront
+                        escrowAgent
+                    }
+                    payerSets(where: {payer: $address}, first: 1000) {
+                        escrow { escrowAddress }
+                        payer
+                        settleDeadline
+                        orderFulfilled {
+                            orderHash
+                            offerer
+                            offer {
+                                itemType
+                                token
+                                identifier
+                                amount
+                            }
+                            consideration {
+                                itemType
+                                token
+                                identifier
+                                amount
+                                recipient
+                            }
+                        }
+                        blockNumber
+                        blockTimestamp
+                    }
+                    settleds(first: 1000) {
+                        escrow { escrowAddress }
+                        to
+                        token
+                        amount
+                        blockNumber
+                        blockTimestamp
+                    }
+                    refundeds(first: 1000) {
+                        escrow { escrowAddress }
+                        to
+                        token
+                        amount
+                        blockNumber
+                        blockTimestamp
+                    }
+                    disputeds(first: 1000) {
+                        escrow { escrowAddress }
+                        disputeInitiator
+                        blockNumber
+                        blockTimestamp
+                    }
+                    disputeResolveds(first: 1000) {
+                        escrow { escrowAddress }
+                        resolver
+                        settled
+                        blockNumber
+                        blockTimestamp
+                    }
+                    escapeAddressSets(first: 1000) {
+                        escrow { escrowAddress }
+                        escapeAddress
+                        blockNumber
+                        blockTimestamp
+                    }
+                    escapeds(first: 1000) {
+                        escrow { escrowAddress }
+                        to
+                        token
+                        amount
+                        blockNumber
+                        blockTimestamp
+                    }
+                }
+            `;
+    
+            try {
+                const response = await fetch(SUBGRAPH_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query, variables: { address } })
+                });
+    
+                const data = await response.json();
+                displayData(data.data);
+            } catch (error) {
+                console.error('Error fetching data:', error);
+            }
+        }
+    
+        function displayData(data) {
+            const allEvents = {
+                PayerSet: data.payerSets,
+                Settled: data.settleds,
+                Refunded: data.refundeds,
+                Disputed: data.disputeds,
+                DisputeResolved: data.disputeResolveds,
+                EscapeAddressSet: data.escapeAddressSets,
+                Escaped: data.escapeds
+            };
+    
+            displayOrders('ordersPlaced', data.payerSets, allEvents);
+            displayOrders('ordersSold', data.escrowCreatedAsPayee, allEvents);
+            displayOrders('escrowAgent', data.escrowCreatedAsEscrowAgent, allEvents);
+        }
+    
+        function displayOrders(elementId, orders, allEvents) {
+            const container = document.getElementById(elementId);
+            container.innerHTML = '';
+    
+            orders.forEach(order => {
+                const escrowAddress = order.escrow ? order.escrow.escrowAddress : order.escrowAddress;
+                const div = document.createElement('div');
+                div.className = 'escrow-item';
+    
+                let content = `<p><span class="escrow-address" onclick="openBasescan('${escrowAddress}')">Escrow Address: ${escrowAddress}</span></p>`;
+                
+                for (const [key, value] of Object.entries(order)) {
+                    if (key !== 'escrow' && key !== 'escrowAddress') {
+                        if (key === 'orderFulfilled' && value) {
+                            content += `<p><strong>Order Fulfilled:</strong></p>`;
+                            content += `<p>Order Hash: ${value.orderHash}</p>`;
+                            content += `<p>Offerer: ${value.offerer}</p>`;
+                            content += `<p><strong>Offer:</strong></p>`;
+                            content += `<pre>${JSON.stringify(value.offer, null, 2)}</pre>`;
+                            content += `<p><strong>Consideration:</strong></p>`;
+                            content += `<pre>${JSON.stringify(value.consideration, null, 2)}</pre>`;
+                        } else {
+                            content += `<p><strong>${key}:</strong> ${JSON.stringify(value)}</p>`;
+                        }
+                    }
+                }
+    
+                content += displayEvents(escrowAddress, allEvents);
+    
+                div.innerHTML = content;
+                container.appendChild(div);
+            });
+        }
+    
+        function displayEvents(escrowAddress, allEvents) {
+            let content = '<h3>Events:</h3>';
+    
+            for (const [eventType, events] of Object.entries(allEvents)) {
+                const relevantEvents = events.filter(e => e.escrow.escrowAddress === escrowAddress);
+                relevantEvents.forEach(e => {
+                    content += `<div class="event event-${eventType}">`;
+                    content += `<p><strong>${eventType} Event:</strong></p>`;
+                    for (const [key, value] of Object.entries(e)) {
+                        if (key !== 'escrow') {
+                            content += `<p><strong>${key}:</strong> ${JSON.stringify(value)}</p>`;
+                        }
+                    }
+                    content += '</div>';
+                });
+            }
+    
+            return content;
+        }
+    
+        function openBasescan(address) {
+            window.open(`https://basescan.org/address/${address}`, '_blank');
+        }
+    </script>
+</body>
+</html>

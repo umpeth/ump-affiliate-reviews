@@ -134,6 +134,8 @@ export function handleStorefrontOrderFulfilled(event: StorefrontOrderFulfilledEv
   
   // Create Order entity for the unified model
   let order = new Order(event.transaction.hash);
+  
+  // Use the buyer parameter from the event, NOT the escrow address
   order.buyer = event.params.buyer;
   order.seller = storefront.owner;
   order.storefront = storefront.id;
@@ -151,10 +153,11 @@ export function handleStorefrontOrderFulfilled(event: StorefrontOrderFulfilledEv
   
   order.save();
   
-  log.info("Created order: {}, Buyer: {}, Seller: {}", [
+  // Add debug logs to verify the data
+  log.debug("Created order - Hash: {}, Buyer: {}, Escrow: {}", [
     order.id.toHexString(),
     order.buyer.toHexString(),
-    order.seller.toHexString()
+    order.escrowContract ? order.escrowContract.toHexString() : "null"
   ]);
   
   // Link with escrow if exists
@@ -242,6 +245,8 @@ export function handleAffiliateOrderFulfilled(event: AffiliateOrderFulfilledEven
   
   // Create Order entity for the unified model
   let order = new Order(event.transaction.hash);
+  
+  // FIXED: Use the buyer parameter from the event, NOT the escrow address
   order.buyer = event.params.buyer;
   order.seller = storefront.owner;
   order.storefront = storefront.id;
@@ -257,6 +262,14 @@ export function handleAffiliateOrderFulfilled(event: AffiliateOrderFulfilledEven
   
   order.save();
   
+  // Add debug logs to verify the data
+  log.debug("Created affiliate order - Hash: {}, Buyer: {}, Escrow: {}, Affiliate: {}", [
+    order.id.toHexString(),
+    order.buyer.toHexString(),
+    order.escrowContract.toHexString(),
+    safeAddressToString(order.affiliate)
+  ]);
+  
   // Log order creation - handling nullable affiliate field
   log.info(
     "Created affiliate order: {}, Buyer: {}, Seller: {}",
@@ -267,9 +280,7 @@ export function handleAffiliateOrderFulfilled(event: AffiliateOrderFulfilledEven
     ]
   );
   
-  // THIS IS THE FIX FOR LINE 260
-  // Instead of directly accessing toHexString() on a potentially null value,
-  // use the safe helper function
+  // Log affiliate info using safe helper
   log.info("Order affiliate: {}", [safeAddressToString(order.affiliate)]);
   
   // Link with escrow
@@ -294,6 +305,8 @@ export function handleSimpleOrderFulfilled(event: StorefrontOrderFulfilledEvent)
   }
 
   let order = new Order(event.transaction.hash);
+  
+  // FIXED: Make sure we're using the correct buyer field
   order.buyer = event.params.buyer;
   order.seller = storefront.owner;
   order.storefront = storefront.id;

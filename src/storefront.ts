@@ -157,7 +157,7 @@ export function handleStorefrontOrderFulfilled(event: StorefrontOrderFulfilledEv
   log.debug("Created order - Hash: {}, Buyer: {}, Escrow: {}", [
     order.id.toHexString(),
     order.buyer.toHexString(),
-    order.escrowContract ? order.escrowContract.toHexString() : "null"
+    safeAddressToString(order.escrowContract)
   ]);
   
   // Link with escrow if exists
@@ -266,7 +266,7 @@ export function handleAffiliateOrderFulfilled(event: AffiliateOrderFulfilledEven
   log.debug("Created affiliate order - Hash: {}, Buyer: {}, Escrow: {}, Affiliate: {}", [
     order.id.toHexString(),
     order.buyer.toHexString(),
-    order.escrowContract.toHexString(),
+    safeAddressToString(order.escrowContract),
     safeAddressToString(order.affiliate)
   ]);
   

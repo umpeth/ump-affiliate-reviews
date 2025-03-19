@@ -10,7 +10,7 @@ function safeAddressToString(address: Bytes | null): string {
   return address.toHexString();
 }
 
-import { SaleAttestation, Review, Order, Storefront } from '../../generated/schema'
+import { SaleAttestation, Review, Order, Storefront, OrderEscrow } from '../../generated/schema'
 import { ReviewSubmitted } from '../../generated/ReviewResolver/ReviewResolver'
 import { SaleAttested } from '../../generated/SaleResolver/SaleAttestationResolver'
 
@@ -42,12 +42,41 @@ export function handleSaleAttested(event: SaleAttested): void {
   attestation.buyer = event.params.buyer
   attestation.seller = event.params.seller
   attestation.storefront = order.storefront
-  attestation.escrowContract = event.params.escrowContract
+  attestation.escrowContract = event.params.escrowContract.toHexString()
   attestation.storefrontContract = event.params.storefrontContract
   attestation.timestamp = event.block.timestamp
   attestation.blockNumber = event.block.number
 
   attestation.save()
+
+  // Check if we need to update the order with the correct buyer
+  if (!order.buyer.equals(event.params.buyer)) {
+    log.warning(
+      "Buyer mismatch detected! Order buyer: {}, Attestation buyer: {}. Fixing...",
+      [order.buyer.toHexString(), event.params.buyer.toHexString()]
+    );
+    
+    // Update the order with the correct buyer from the attestation
+    order.buyer = event.params.buyer;
+    order.save();
+    
+    log.info("Order buyer field updated to: {}", [order.buyer.toHexString()]);
+  }
+
+  // If there's an escrow contract, look it up and link it to the order if not already linked
+  if (event.params.escrowContract) {
+    let escrow = OrderEscrow.load(event.params.escrowContract.toHexString())
+    if (escrow !== null) {
+      // Link to the order if it's not already linked
+      if (escrow.order === null) {
+        escrow.order = order.id
+        escrow.save()
+        log.info("Linked escrow contract to order: {}", [escrow.id])
+      }
+    } else {
+      log.warning("Escrow contract not found: {}", [event.params.escrowContract.toHexString()])
+    }
+  }
 
   log.info("Created sale attestation - UID: {}, Order ID: {}, Buyer: {}, Seller: {}, Storefront: {}", [
     attestation.id.toHexString(),

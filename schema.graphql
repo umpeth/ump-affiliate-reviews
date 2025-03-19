@@ -72,7 +72,7 @@ type SaleAttestation @entity(immutable: true) {
   buyer: Bytes! # From sale event parameters
   seller: Bytes! # From sale event parameters
   storefront: Bytes!
-  escrowContract: Bytes!
+  escrowContract: OrderEscrow! 
   storefrontContract: Bytes!
   timestamp: BigInt!
   blockNumber: BigInt!
@@ -119,8 +119,8 @@ type OrderEscrow @entity {
   affiliate: Bytes
   affiliateShare: Int
   
-  # Link to order
   order: Order
+  saleAttestation: SaleAttestation @derivedFrom(field: "escrowContract")
 }
 
 type OrderPayment @entity {

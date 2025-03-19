@@ -1,4 +1,4 @@
-import { BigInt, Bytes, log } from '@graphprotocol/graph-ts'
+import { BigInt, Bytes, log, ethereum } from '@graphprotocol/graph-ts'
 
 /**
  * Safely get a string representation of an address that might be null
@@ -34,6 +34,19 @@ export function handleSaleAttested(event: SaleAttested): void {
     return
   }
 
+  // Check existing attestations for this order
+  // If there are any, mark them as not the latest
+  let existingAttestations = order.saleAttestations
+  if (existingAttestations) {
+    for (let i = 0; i < existingAttestations.length; i++) {
+      let existingAttestation = SaleAttestation.load(existingAttestations[i])
+      if (existingAttestation) {
+        existingAttestation.isLatest = false
+        existingAttestation.save()
+      }
+    }
+  }
+
   // Create the sale attestation entity
   let attestation = new SaleAttestation(event.params.uid)
   attestation.transactionHash = event.params.transactionHash
@@ -42,10 +55,24 @@ export function handleSaleAttested(event: SaleAttested): void {
   attestation.buyer = event.params.buyer
   attestation.seller = event.params.seller
   attestation.storefront = order.storefront
-  attestation.escrowContract = event.params.escrowContract.toHexString()
+  attestation.escrowContract = event.params.escrowContract
   attestation.storefrontContract = event.params.storefrontContract
   attestation.timestamp = event.block.timestamp
   attestation.blockNumber = event.block.number
+  
+  // Set as the latest attestation for this order
+  attestation.isLatest = true
+  
+  // Try to get the fee paid for this attestation from the transaction
+  // We could later update to get it from contract state or event data
+  let receipt = event.receipt
+  if (receipt) {
+    let gasUsed = receipt.gasUsed
+    let gasPrice = event.transaction.gasPrice
+    attestation.attestationFee = gasUsed.times(gasPrice)
+  } else {
+    attestation.attestationFee = BigInt.fromI32(0)
+  }
 
   attestation.save()
 

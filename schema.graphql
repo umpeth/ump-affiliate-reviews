@@ -56,15 +56,15 @@ type Order @entity {
   # Reference to escrow contract
   escrowContract: Bytes
   
-  # Reference to sale attestation
-  saleAttestation: SaleAttestation @derivedFrom(field: "order")
+  # Reference to sale attestations - changed from singular to plural
+  saleAttestations: [SaleAttestation!]! @derivedFrom(field: "order")
   
   # Affiliate-related fields
   affiliate: Bytes
   affiliateShare: Int
 }
 
-type SaleAttestation @entity(immutable: true) {
+type SaleAttestation @entity {
   id: Bytes! # attestation UID
   transactionHash: Bytes! # references Order.id
   attestationTxHash: Bytes! # hash of the attestation transaction
@@ -72,11 +72,15 @@ type SaleAttestation @entity(immutable: true) {
   buyer: Bytes! # From sale event parameters
   seller: Bytes! # From sale event parameters
   storefront: Bytes!
-  escrowContract: OrderEscrow! 
+  escrowContract: Bytes! # Changed from OrderEscrow to Bytes
   storefrontContract: Bytes!
   timestamp: BigInt!
   blockNumber: BigInt!
+  attestationFee: BigInt # Fee paid for the attestation
   reviews: [Review!]! @derivedFrom(field: "saleAttestation")
+  
+  # Add a flag to identify the most recent attestation for an order
+  isLatest: Boolean!
 }
 
 type Review @entity(immutable: true) {
@@ -120,7 +124,9 @@ type OrderEscrow @entity {
   affiliateShare: Int
   
   order: Order
-  saleAttestation: SaleAttestation @derivedFrom(field: "escrowContract")
+  
+  # Changed to allow multiple sale attestations
+  relatedAttestations: [SaleAttestation!]! @derivedFrom(field: "escrowContract")
 }
 
 type OrderPayment @entity {

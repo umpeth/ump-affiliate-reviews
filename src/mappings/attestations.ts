@@ -1,4 +1,4 @@
-import { BigInt, Bytes, log, ethereum } from '@graphprotocol/graph-ts'
+import { BigInt, Bytes, log } from '@graphprotocol/graph-ts'
 
 /**
  * Safely get a string representation of an address that might be null
@@ -34,18 +34,16 @@ export function handleSaleAttested(event: SaleAttested): void {
     return
   }
 
-  // Check existing attestations for this order
-  // If there are any, mark them as not the latest
-  let existingAttestations = order.saleAttestations
-  if (existingAttestations) {
-    for (let i = 0; i < existingAttestations.length; i++) {
-      let existingAttestation = SaleAttestation.load(existingAttestations[i])
-      if (existingAttestation) {
-        existingAttestation.isLatest = false
-        existingAttestation.save()
-      }
-    }
+  // Get the OrderEscrow entity - we need to make sure it exists before creating the attestation
+  let escrowEntity = OrderEscrow.load(event.params.escrowContract.toHexString())
+  if (escrowEntity === null) {
+    log.error("Escrow contract not found: {}", [event.params.escrowContract.toHexString()])
+    return
   }
+
+  // Set all existing attestations for this order to isLatest = false
+  let existingAttestations = SaleAttestation.load(event.params.uid)
+  
 
   // Create the sale attestation entity
   let attestation = new SaleAttestation(event.params.uid)
@@ -55,7 +53,7 @@ export function handleSaleAttested(event: SaleAttested): void {
   attestation.buyer = event.params.buyer
   attestation.seller = event.params.seller
   attestation.storefront = order.storefront
-  attestation.escrowContract = event.params.escrowContract
+  attestation.escrowContract = event.params.escrowContract.toHexString() // Reference the OrderEscrow entity by ID
   attestation.storefrontContract = event.params.storefrontContract
   attestation.timestamp = event.block.timestamp
   attestation.blockNumber = event.block.number
@@ -64,15 +62,8 @@ export function handleSaleAttested(event: SaleAttested): void {
   attestation.isLatest = true
   
   // Try to get the fee paid for this attestation from the transaction
-  // We could later update to get it from contract state or event data
-  let receipt = event.receipt
-  if (receipt) {
-    let gasUsed = receipt.gasUsed
-    let gasPrice = event.transaction.gasPrice
-    attestation.attestationFee = gasUsed.times(gasPrice)
-  } else {
-    attestation.attestationFee = BigInt.fromI32(0)
-  }
+  let txGasPrice = event.transaction.gasPrice
+  attestation.attestationFee = txGasPrice
 
   attestation.save()
 
@@ -90,19 +81,13 @@ export function handleSaleAttested(event: SaleAttested): void {
     log.info("Order buyer field updated to: {}", [order.buyer.toHexString()]);
   }
 
-  // If there's an escrow contract, look it up and link it to the order if not already linked
-  if (event.params.escrowContract) {
-    let escrow = OrderEscrow.load(event.params.escrowContract.toHexString())
-    if (escrow !== null) {
-      // Link to the order if it's not already linked
-      if (escrow.order === null) {
-        escrow.order = order.id
-        escrow.save()
-        log.info("Linked escrow contract to order: {}", [escrow.id])
-      }
-    } else {
-      log.warning("Escrow contract not found: {}", [event.params.escrowContract.toHexString()])
-    }
+  // We've already checked that the escrow contract exists 
+  // and we've linked the attestation to it.
+  // Now update the order field on the escrow if it's not already set
+  if (escrowEntity.order === null) {
+    escrowEntity.order = order.id
+    escrowEntity.save()
+    log.info("Linked escrow contract to order: {}", [escrowEntity.id])
   }
 
   log.info("Created sale attestation - UID: {}, Order ID: {}, Buyer: {}, Seller: {}, Storefront: {}", [

@@ -72,7 +72,7 @@ type SaleAttestation @entity {
   buyer: Bytes! # From sale event parameters
   seller: Bytes! # From sale event parameters
   storefront: Bytes!
-  escrowContract: Bytes! # Changed from OrderEscrow to Bytes
+  escrowContract: OrderEscrow! # Reference to OrderEscrow entity
   storefrontContract: Bytes!
   timestamp: BigInt!
   blockNumber: BigInt!
@@ -125,8 +125,8 @@ type OrderEscrow @entity {
   
   order: Order
   
-  # Changed to allow multiple sale attestations
-  relatedAttestations: [SaleAttestation!]! @derivedFrom(field: "escrowContract")
+  # Multiple sale attestations for this escrow contract
+  attestations: [SaleAttestation!]! @derivedFrom(field: "escrowContract")
 }
 
 type OrderPayment @entity {

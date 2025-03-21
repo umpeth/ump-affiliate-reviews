@@ -41,10 +41,6 @@ export function handleSaleAttested(event: SaleAttested): void {
     return
   }
 
-  // Set all existing attestations for this order to isLatest = false
-  let existingAttestations = SaleAttestation.load(event.params.uid)
-  
-
   // Create the sale attestation entity
   let attestation = new SaleAttestation(event.params.uid)
   attestation.transactionHash = event.params.transactionHash
@@ -53,13 +49,24 @@ export function handleSaleAttested(event: SaleAttested): void {
   attestation.buyer = event.params.buyer
   attestation.seller = event.params.seller
   attestation.storefront = order.storefront
-  attestation.escrowContract = event.params.escrowContract.toHexString() // Reference the OrderEscrow entity by ID
+  attestation.escrowContract = event.params.escrowContract.toHexString()
   attestation.storefrontContract = event.params.storefrontContract
   attestation.timestamp = event.block.timestamp
   attestation.blockNumber = event.block.number
   
-  // Set as the latest attestation for this order
-  attestation.isLatest = true
+  // Determine if this is the latest attestation based on timestamp
+  let isLatest = true
+  
+  // If there's already a latest attestation ID stored in the order
+  if (order.latestAttestationId) {
+    let currentLatest = SaleAttestation.load(order.latestAttestationId)
+    if (currentLatest) {
+      isLatest = event.block.timestamp.gt(currentLatest.timestamp)
+    }
+  }
+  
+  // Set the isLatest flag based on our determination
+  attestation.isLatest = isLatest
   
   // Try to get the fee paid for this attestation from the transaction
   let txGasPrice = event.transaction.gasPrice
@@ -67,18 +74,23 @@ export function handleSaleAttested(event: SaleAttested): void {
 
   attestation.save()
 
-  // Check if we need to update the order with the correct buyer
-  if (!order.buyer.equals(event.params.buyer)) {
-    log.warning(
-      "Buyer mismatch detected! Order buyer: {}, Attestation buyer: {}. Fixing...",
-      [order.buyer.toHexString(), event.params.buyer.toHexString()]
-    );
+  // If this is the latest attestation, update the order
+  if (isLatest) {
+    order.latestAttestationId = event.params.uid
     
-    // Update the order with the correct buyer from the attestation
-    order.buyer = event.params.buyer;
-    order.save();
+    // Check if we need to update the order with the correct buyer
+    if (!order.buyer.equals(event.params.buyer)) {
+      log.warning(
+        "Buyer mismatch detected! Order buyer: {}, Attestation buyer: {}. Fixing...",
+        [order.buyer.toHexString(), event.params.buyer.toHexString()]
+      )
+      
+      // Update the order with the correct buyer from the attestation
+      order.buyer = event.params.buyer
+    }
     
-    log.info("Order buyer field updated to: {}", [order.buyer.toHexString()]);
+    order.save()
+    log.info("Updated order with latest attestation ID: {}", [order.latestAttestationId.toHexString()])
   }
 
   // We've already checked that the escrow contract exists 
@@ -90,15 +102,14 @@ export function handleSaleAttested(event: SaleAttested): void {
     log.info("Linked escrow contract to order: {}", [escrowEntity.id])
   }
 
-  log.info("Created sale attestation - UID: {}, Order ID: {}, Buyer: {}, Seller: {}, Storefront: {}", [
+  log.info("Created sale attestation - UID: {}, Order ID: {}, Buyer: {}, Seller: {}, IsLatest: {}", [
     attestation.id.toHexString(),
     order.id.toHexString(), 
     attestation.buyer.toHexString(),
     attestation.seller.toHexString(),
-    attestation.storefront.toHexString()
+    isLatest.toString()
   ])
 }
-
 /**
  * Handle review submission events from the ReviewResolver
  */

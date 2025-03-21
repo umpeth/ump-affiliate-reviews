@@ -59,6 +59,9 @@ type Order @entity {
   # Reference to sale attestations - changed from singular to plural
   saleAttestations: [SaleAttestation!]! @derivedFrom(field: "order")
   
+  # Store reference to the latest attestation ID
+  latestAttestationId: Bytes
+  
   # Affiliate-related fields
   affiliate: Bytes
   affiliateShare: Int

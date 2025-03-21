@@ -151,6 +151,10 @@ export function handleReviewSubmitted(event: ReviewSubmitted): void {
   review.reviewText = event.params.reviewText
   review.timestamp = event.block.timestamp
   review.blockNumber = event.block.number
+  
+  // Add the new transaction hash fields
+  review.attestationTxHash = event.transaction.hash
+  review.transactionHash = saleAttestation.transactionHash
 
   review.save()
 

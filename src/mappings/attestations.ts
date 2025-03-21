@@ -59,7 +59,8 @@ export function handleSaleAttested(event: SaleAttested): void {
   
   // If there's already a latest attestation ID stored in the order
   if (order.latestAttestationId) {
-    let currentLatest = SaleAttestation.load(order.latestAttestationId)
+    let currentLatestId = order.latestAttestationId as Bytes
+    let currentLatest = SaleAttestation.load(currentLatestId)
     if (currentLatest) {
       isLatest = event.block.timestamp.gt(currentLatest.timestamp)
     }
@@ -77,6 +78,7 @@ export function handleSaleAttested(event: SaleAttested): void {
   // If this is the latest attestation, update the order
   if (isLatest) {
     order.latestAttestationId = event.params.uid
+    order.latestAttestationTimestamp = event.block.timestamp
     
     // Check if we need to update the order with the correct buyer
     if (!order.buyer.equals(event.params.buyer)) {
@@ -90,7 +92,7 @@ export function handleSaleAttested(event: SaleAttested): void {
     }
     
     order.save()
-    log.info("Updated order with latest attestation ID: {}", [order.latestAttestationId.toHexString()])
+    log.info("Updated order with latest attestation ID: {}", [event.params.uid.toHexString()])
   }
 
   // We've already checked that the escrow contract exists 
@@ -110,6 +112,7 @@ export function handleSaleAttested(event: SaleAttested): void {
     isLatest.toString()
   ])
 }
+
 /**
  * Handle review submission events from the ReviewResolver
  */

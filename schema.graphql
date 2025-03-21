@@ -97,7 +97,9 @@ type Review @entity(immutable: true) {
   asDescribed: Boolean!
   reviewText: String!
   timestamp: BigInt!
-  blockNumber: BigInt! 
+  blockNumber: BigInt!
+  attestationTxHash: Bytes! # hash of the review attestation transaction
+  transactionHash: Bytes! # hash of the original sale transaction
 }
 
 type OrderEscrow @entity {

@@ -1,102 +1,8 @@
 specVersion: 0.0.5
-description: Unified Storefront, Affiliate, and Reviews Subgraph
+description: Unified Affiliate and Reviews Subgraph
 schema:
   file: ./schema.graphql
 dataSources:
-  - kind: ethereum
-    name: EscrowFactory
-    network: base
-    source:
-      address: "0x04e6654D571AcF88Edb26d4FA5ff9E3CA6209dF7"
-      abi: EscrowFactory
-      startBlock: 22665452 
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.7
-      language: wasm/assemblyscript
-      entities:
-        - OrderEscrow
-      abis:
-        - name: EscrowFactory
-          file: ./abis/EscrowFactory.json
-        - name: AffiliateEscrow
-          file: ./abis/AffiliateEscrow.json
-      eventHandlers:
-        - event: EscrowCreated(indexed address,indexed address,indexed address,address)
-          handler: handleEscrowCreated
-      file: ./src/escrow-factory.ts
-
-  - kind: ethereum
-    name: SimpleERC1155StorefrontFactory2
-    network: base
-    source:
-      address: "0xbe203eCCB0507e4558A7990271d59Cd6D9ceb1bA"
-      abi: SimpleERC1155StorefrontFactoryV2
-      startBlock: 22665452  
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.7
-      language: wasm/assemblyscript
-      entities:
-        - Storefront
-      abis:
-        - name: SimpleERC1155StorefrontFactoryV2
-          file: ./abis/SimpleERC1155StorefrontFactoryV2.json
-        - name: SimpleERC1155StorefrontV2
-          file: ./abis/SimpleERC1155StorefrontV2.json
-      eventHandlers:
-        - event: StorefrontCreated(indexed address,indexed address,address,address)
-          handler: handleStorefrontCreatedV2
-      file: ./src/storefront-factory-v2.ts
-
-  - kind: ethereum
-    name: Seaport
-    network: base
-    source:
-      address: "0x0000000000000068F116a894984e2DB1123eB395"
-      abi: Seaport
-      startBlock: 22665452
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.7
-      language: wasm/assemblyscript
-      entities:
-        - OrderFulfilled
-        - OfferItem
-        - ConsiderationItem
-      abis:
-        - name: Seaport
-          file: ./abis/SimplifiedSeaport.json
-        - name: ReceiptERC1155
-          file: ./abis/ReceiptERC1155.json        
-      eventHandlers:
-        - event: OrderFulfilled(bytes32,indexed address,indexed address,address,(uint8,address,uint256,uint256)[],(uint8,address,uint256,uint256,address)[])
-          handler: handleOrderFulfilled
-      file: ./src/seaport.ts
-
-  - kind: ethereum
-    name: SimpleERC1155StorefrontFactory
-    network: base
-    source:
-      address: "0x3386E47e77fC2784C79A99db0c0Bb7CdB4525C52"
-      abi: SimpleERC1155StorefrontFactory
-      startBlock: 22665452  
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.7
-      language: wasm/assemblyscript
-      entities:
-        - Storefront
-      abis:
-        - name: SimpleERC1155StorefrontFactory
-          file: ./abis/SimpleERC1155StorefrontFactory.json
-        - name: SimpleERC1155Storefront
-          file: ./abis/SimpleERC1155Storefront.json
-      eventHandlers:
-        - event: StorefrontCreated(indexed address,indexed address,address)
-          handler: handleStorefrontCreated
-      file: ./src/storefront-factory.ts
-
   - kind: ethereum
     name: AffiliateERC1155StorefrontFactory
     network: base
@@ -116,7 +22,7 @@ dataSources:
         - name: AffiliateERC1155Storefront
           file: ./abis/AffiliateERC1155Storefront.json
       eventHandlers:
-        - event: StorefrontCreated(indexed address,indexed address,address,address,address)
+        - event: StorefrontCreated(indexed address,indexed address,address,address,address,string)
           handler: handleAffiliateStorefrontCreated
       file: ./src/affiliate-storefront-factory.ts
 
@@ -142,6 +48,31 @@ dataSources:
         - event: AffiliateEscrowCreated(indexed address,indexed address,indexed address,address)
           handler: handleAffiliateEscrowCreated
       file: ./src/affiliate-escrow-factory.ts
+
+  - kind: ethereum
+    name: Seaport
+    network: base
+    source:
+      address: "0x0000000000000068F116a894984e2DB1123eB395"
+      abi: Seaport
+      startBlock: 22665452
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - OrderFulfilled
+        - OfferItem
+        - ConsiderationItem
+      abis:
+        - name: Seaport
+          file: ./abis/SimplifiedSeaport.json
+        - name: ReceiptERC1155
+          file: ./abis/ReceiptERC1155.json        
+      eventHandlers:
+        - event: OrderFulfilled(bytes32,indexed address,indexed address,address,(uint8,address,uint256,uint256)[],(uint8,address,uint256,uint256,address)[])
+          handler: handleOrderFulfilled
+      file: ./src/seaport.ts
 
   - kind: ethereum
     name: SaleResolver
@@ -185,6 +116,43 @@ dataSources:
           handler: handleReviewSubmitted
       file: ./src/mappings/attestations.ts
 
+  - kind: ethereum
+    name: CurationStorefront
+    network: base
+    source:
+      address: "0xdFCA83ff7544Acb88B5D04A9101d58780243E0cb"
+      abi: CurationStorefront
+      startBlock: 27901638 
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - CurationStorefront
+        - Curator
+        - CuratorAction
+        - CurationListing
+      abis:
+        - name: CurationStorefront
+          file: ./abis/CurationStorefront.json
+      eventHandlers:
+        - event: CurationCreated(indexed uint256,string,string,address)
+          handler: handleCurationCreated
+        - event: CuratorAdded(indexed uint256,indexed address)
+          handler: handleCuratorAdded
+        - event: CuratorRemoved(indexed uint256,indexed address)
+          handler: handleCuratorRemoved
+        - event: ListingCurated(indexed uint256,indexed uint256,indexed address,uint256)
+          handler: handleListingCurated
+        - event: ListingUpdated(indexed uint256,indexed uint256,bool)
+          handler: handleListingUpdated
+        - event: PaymentAddressUpdated(indexed uint256,indexed address,indexed address)
+          handler: handlePaymentAddressUpdated
+        - event: MetadataUpdated(indexed uint256,string)
+          handler: handleMetadataUpdated
+        - event: Transfer(indexed address,indexed address,indexed uint256)
+          handler: handleTransfer
+      file: ./src/curation-storefront.ts
 templates:
   - name: AffiliateERC1155Storefront
     kind: ethereum/contract
@@ -206,14 +174,19 @@ templates:
           file: ./abis/ReceiptERC1155.json
       eventHandlers:
         - event: ListingAdded(indexed uint256,uint256,indexed address,uint16)
-          handler: handleAffiliateListingAdded
+          handler: handleListingAdded
         - event: ListingUpdated(indexed uint256,uint256,uint256,address,indexed address,uint16,uint16)
-          handler: handleAffiliateListingUpdated
+          handler: handleListingUpdated
         - event: ListingRemoved(indexed uint256,uint256,indexed address,uint16)
-          handler: handleAffiliateListingRemoved
+          handler: handleListingRemoved
         - event: StorefrontOrderFulfilled(uint256,uint256,address,address,uint256,address,address,uint16,bytes,bytes,bytes,bytes)
           handler: handleAffiliateOrderFulfilled
-          
+        - event: ReadyStateChanged(bool)
+          handler: handleReadyStateChanged
+        - event: SettleDeadlineUpdated(uint256)
+          handler: handleSettleDeadlineUpdated
+        - event: ERC1155TokenAddressChanged(indexed address,indexed address)
+          handler: handleERC1155TokenAddressChanged
   - name: AffiliateEscrow
     kind: ethereum/contract
     network: base
@@ -258,119 +231,6 @@ templates:
           handler: handleArbiterChangeProposed
         - event: ArbiterChangeApproved(indexed address,indexed address,indexed address)
           handler: handleArbiterChangeApproved
-
-  - name: SimpleEscrow
-    kind: ethereum/contract
-    network: base
-    source:
-      abi: SimpleEscrow
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.7
-      language: wasm/assemblyscript
-      file: ./src/simple-escrow.ts
-      entities:
-        - OrderEscrow
-        - OrderPayment
-        - Settled
-        - Refunded
-        - Disputed
-        - DisputeResolved
-        - EscapeAddressSet
-        - Escaped
-        - ArbiterChange
-      abis:
-        - name: SimpleEscrow
-          file: ./abis/SimpleEscrow.json
-      eventHandlers:
-        - event: PayerSet(indexed address,uint256)
-          handler: handlePayerSet
-        - event: Settled(indexed address,address,uint256)
-          handler: handleSettled
-        - event: Refunded(indexed address,address,uint256)
-          handler: handleRefunded
-        - event: Disputed(indexed address)
-          handler: handleDisputed
-        - event: DisputeRemoved(indexed address)
-          handler: handleDisputeRemoved
-        - event: DisputeResolved(indexed address,bool)
-          handler: handleDisputeResolved
-        - event: EscapeAddressSet(indexed address)
-          handler: handleEscapeAddressSet
-        - event: Escaped(indexed address,address,uint256)
-          handler: handleEscaped
-        - event: ArbiterChangeProposed(indexed address,indexed address)
-          handler: handleArbiterChangeProposed
-        - event: ArbiterChangeApproved(indexed address,indexed address,indexed address)
-          handler: handleArbiterChangeApproved
-
-  - name: SimpleERC1155Storefront
-    kind: ethereum/contract
-    network: base
-    source:
-      abi: SimpleERC1155Storefront
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.7
-      language: wasm/assemblyscript
-      file: ./src/storefront.ts
-      entities:
-        - TokenListing
-        - Order
-      abis:
-        - name: SimpleERC1155Storefront
-          file: ./abis/SimpleERC1155Storefront.json
-        - name: ReceiptERC1155
-          file: ./abis/ReceiptERC1155.json
-      eventHandlers:
-        - event: ListingAdded(indexed uint256,uint256,indexed address)
-          handler: handleListingAddedSimple
-        - event: ListingUpdated(indexed uint256,uint256,uint256,address,indexed address)
-          handler: handleListingUpdatedSimple
-        - event: ListingRemoved(indexed uint256,uint256,indexed address)
-          handler: handleListingRemovedSimple
-        - event: OrderFulfilled(uint256,uint256,address,address,uint256,address)
-          handler: handleSimpleOrderFulfilled
-        - event: ReadyStateChanged(bool)
-          handler: handleReadyStateChanged
-        - event: SettleDeadlineUpdated(uint256)
-          handler: handleSettleDeadlineUpdated
-        - event: ERC1155TokenAddressChanged(indexed address,indexed address)
-          handler: handleERC1155TokenAddressChanged
-
-  - name: SimpleERC1155StorefrontV2
-    kind: ethereum/contract
-    network: base
-    source:
-      abi: SimpleERC1155StorefrontV2
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.7
-      language: wasm/assemblyscript
-      file: ./src/storefront.ts
-      entities:
-        - TokenListing
-        - Order
-      abis:
-        - name: SimpleERC1155StorefrontV2
-          file: ./abis/SimpleERC1155StorefrontV2.json
-        - name: ReceiptERC1155
-          file: ./abis/ReceiptERC1155.json
-      eventHandlers:
-        - event: ListingAdded(indexed uint256,uint256,indexed address)
-          handler: handleListingAddedSimple
-        - event: ListingUpdated(indexed uint256,uint256,uint256,address,indexed address)
-          handler: handleListingUpdatedSimple
-        - event: ListingRemoved(indexed uint256,uint256,indexed address)
-          handler: handleListingRemovedSimple
-        - event: StorefrontOrderFulfilled(uint256,uint256,address,address,uint256,address,bytes,bytes,bytes,bytes)   
-          handler: handleStorefrontOrderFulfilled
-        - event: ReadyStateChanged(bool)
-          handler: handleReadyStateChanged
-        - event: SettleDeadlineUpdated(uint256)
-          handler: handleSettleDeadlineUpdated
-        - event: ERC1155TokenAddressChanged(indexed address,indexed address)
-          handler: handleERC1155TokenAddressChanged
-
+          
 features:
   - fullTextSearch

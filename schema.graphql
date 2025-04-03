@@ -289,6 +289,64 @@ type ConsiderationItem @entity {
   recipient: Bytes!
 }
 
+# Curation-related entities
+type CurationStorefront @entity {
+  id: ID!                         # Token ID
+  name: String!
+  description: String!
+  owner: Bytes!
+  paymentAddress: Bytes!
+  tokenURI: String
+  listings: [CurationListing!]! @derivedFrom(field: "curation")
+  activeCurators: [Curator!]! @derivedFrom(field: "curation")
+  curatorHistory: [CuratorAction!]! @derivedFrom(field: "curation")
+  createdAt: BigInt!
+  createdTxHash: Bytes!
+}
+
+type Curator @entity {
+  id: ID!                         # curationId + "-" + curator address
+  curation: CurationStorefront!
+  curator: Bytes!
+  isActive: Boolean!
+  addedAt: BigInt!
+  addedTxHash: Bytes!
+  removedAt: BigInt
+  removedTxHash: Bytes
+  actions: [CuratorAction!]! @derivedFrom(field: "curator")
+}
+
+type CuratorAction @entity {
+  id: ID!                         # transaction hash + "-" + log index
+  curation: CurationStorefront!
+  curator: Curator!
+  actionType: String!             # "ADDED" or "REMOVED"
+  timestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type CurationListing @entity {
+  id: ID!                         # curationId + "-" + listingId
+  curation: CurationStorefront!
+  listingId: BigInt!
+  storefront: Bytes!              # Storefront address
+  tokenId: BigInt!                # Original token ID
+  active: Boolean!
+  createdAt: BigInt!
+  createdTxHash: Bytes!
+  lastUpdatedAt: BigInt
+  lastUpdatedTxHash: Bytes
+  
+  # Mirrored token listing data for easier queries
+  price: BigInt
+  paymentToken: Bytes
+  affiliateFee: Int
+  tokenURI: String
+  contractURI: String
+  tokenMetadata: ERC1155TokenMetadata
+  contractMetadata: ERC1155ContractMetadata
+  erc1155Token: Bytes
+}
 type _Schema_ @fulltext(
   name: "reviewSearch"
   language: en

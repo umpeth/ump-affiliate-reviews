@@ -11,26 +11,15 @@ function safeAddressToString(address: Bytes | null): string {
 }
 
 import {
-  StorefrontOrderFulfilled as StorefrontOrderFulfilledEvent,
-  ListingAdded as ListingAddedEvent,
-  ListingUpdated as ListingUpdatedEvent,
-  ListingRemoved as ListingRemovedEvent,
-  ReadyStateChanged as ReadyStateChangedEvent,
-  SettleDeadlineUpdated as SettleDeadlineUpdatedEvent,
-  ERC1155TokenAddressChanged as ERC1155TokenAddressChangedEvent,
-} from "../generated/templates/SimpleERC1155StorefrontV2/SimpleERC1155StorefrontV2"
-import {
-  ListingAdded as ListingAddedEventSimple,
-  ListingUpdated as ListingUpdatedEventSimple,
-  ListingRemoved as ListingRemovedEventSimple,
-} from "../generated/templates/SimpleERC1155Storefront/SimpleERC1155Storefront"
-import {
   StorefrontOrderFulfilled as AffiliateOrderFulfilledEvent,
   ListingAdded as AffiliateListingAddedEvent,
   ListingUpdated as AffiliateListingUpdatedEvent,
-  ListingRemoved as AffiliateListingRemovedEvent
+  ListingRemoved as AffiliateListingRemovedEvent,
+  ReadyStateChanged as ReadyStateChangedEvent,
+  SettleDeadlineUpdated as SettleDeadlineUpdatedEvent,
+  ERC1155TokenAddressChanged as ERC1155TokenAddressChangedEvent,
 } from "../generated/templates/AffiliateERC1155Storefront/AffiliateERC1155Storefront"
-import { ReceiptERC1155 } from "../generated/templates/SimpleERC1155StorefrontV2/ReceiptERC1155"
+import { ReceiptERC1155 } from "../generated/templates/AffiliateERC1155Storefront/ReceiptERC1155"
 import { 
   OrderFulfilled, 
   OfferItem, 
@@ -58,117 +47,6 @@ function parseTokenMetadata(uri: string): string {
   metadata.rawJson = uri
   metadata.save()
   return id
-}
-
-/**
- * Handle order fulfillment for V2 storefronts
- */
-export function handleStorefrontOrderFulfilled(event: StorefrontOrderFulfilledEvent): void {
-  log.info("Processing V2 storefront order: {}", [event.transaction.hash.toHexString()])
-  
-  // Create OrderFulfilled entity (for backward compatibility)
-  let id = event.transaction.hash.toHexString();
-  let orderFulfilled = new OrderFulfilled(id);
-  
-  let offerId = id + "-offer-0";
-  let offerItem = new OfferItem(offerId);
-  offerItem.orderFulfilled = id;
-  offerItem.itemType = BigInt.fromI32(3); // ERC1155
-  
-  // Get the storefront to access the ERC1155 token address
-  let storefront = Storefront.load(event.address);
-  if (storefront === null) {
-    log.error("Storefront not found: {}", [event.address.toHexString()])
-    return;
-  }
-  
-  offerItem.token = Address.fromBytes(storefront.erc1155Token); // Use token from storefront
-  offerItem.identifier = event.params.tokenId;
-  offerItem.amount = event.params.amount;
-  offerItem.save();
-  
-  let considerationId = id + "-consideration-0";
-  let considerationItem = new ConsiderationItem(considerationId);
-  considerationItem.orderFulfilled = id;
-  considerationItem.itemType = event.params.paymentToken == Address.zero() ? BigInt.fromI32(0) : BigInt.fromI32(1);
-  considerationItem.token = event.params.paymentToken;
-  considerationItem.identifier = BigInt.fromI32(0);
-  considerationItem.amount = event.params.price;
-  considerationItem.recipient = event.params.buyer;
-  considerationItem.save();
-  
-  let offerItems: string[] = [offerId];
-  let considerationItems: string[] = [considerationId];
-  orderFulfilled.offer = offerItems;
-  orderFulfilled.consideration = considerationItems;
-  
-  orderFulfilled.orderHash = Bytes.empty();
-  orderFulfilled.offerer = event.params.buyer;
-  orderFulfilled.zone = Bytes.empty();
-  orderFulfilled.recipient = event.params.buyer;
-
-  // Set affiliate fields to null - use Address.zero() for address type
-  orderFulfilled.affiliate = Address.zero();
-  orderFulfilled.affiliateShare = 0;
-
-  // Handle encrypted data fields safely
-  if (event.params.encryptedData) {
-    orderFulfilled.encryptedData = event.params.encryptedData;
-  }
-  if (event.params.ephemeralPublicKey) {
-    orderFulfilled.ephemeralPublicKey = event.params.ephemeralPublicKey;
-  }
-  if (event.params.iv) {
-    orderFulfilled.iv = event.params.iv;
-  }
-  // The verificationHash might be empty, so check before setting
-  if (event.params.verificationHash !== null && event.params.verificationHash.length > 0) {
-    orderFulfilled.verificationHash = event.params.verificationHash;
-  }
-  
-  orderFulfilled.blockNumber = event.block.number;
-  orderFulfilled.blockTimestamp = event.block.timestamp;
-  orderFulfilled.transactionHash = event.transaction.hash;
-
-  orderFulfilled.save();
-  
-  // Create Order entity for the unified model
-  let order = new Order(event.transaction.hash);
-  
-  // Use the buyer parameter from the event, NOT the escrow address
-  order.buyer = event.params.buyer;
-  order.seller = storefront.owner;
-  order.storefront = storefront.id;
-  order.tokenId = event.params.tokenId;
-  order.amount = event.params.amount;
-  order.timestamp = event.block.timestamp;
-  order.blockNumber = event.block.number;
-  
-  // Set escrow contract if available
-  order.escrowContract = event.params.escrowContract;
-  
-  // Initialize affiliate fields to null
-  order.affiliate = null;
-  order.affiliateShare = 0;
-  
-  order.save();
-  
-  // Add debug logs to verify the data
-  log.debug("Created order - Hash: {}, Buyer: {}, Escrow: {}", [
-    order.id.toHexString(),
-    order.buyer.toHexString(),
-    safeAddressToString(order.escrowContract)
-  ]);
-  
-  // Link with escrow if exists
-  if (event.params.escrowContract) {
-    let escrow = OrderEscrow.load(event.params.escrowContract.toHexString());
-    if (escrow !== null) {
-      escrow.order = order.id;
-      escrow.save();
-      log.info("Linked order to escrow: {}", [escrow.id]);
-    }
-  }
 }
 
 /**
@@ -246,7 +124,7 @@ export function handleAffiliateOrderFulfilled(event: AffiliateOrderFulfilledEven
   // Create Order entity for the unified model
   let order = new Order(event.transaction.hash);
   
-  // FIXED: Use the buyer parameter from the event, NOT the escrow address
+  // Use the buyer parameter from the event
   order.buyer = event.params.buyer;
   order.seller = storefront.owner;
   order.storefront = storefront.id;
@@ -292,142 +170,7 @@ export function handleAffiliateOrderFulfilled(event: AffiliateOrderFulfilledEven
   }
 }
 
-/**
- * Handle order fulfillment for simple storefronts
- */
-export function handleSimpleOrderFulfilled(event: StorefrontOrderFulfilledEvent): void {
-  log.info("Processing simple order: {}", [event.transaction.hash.toHexString()]);
-  
-  let storefront = Storefront.load(event.address);
-  if (storefront === null) {
-    log.warning("Storefront not found: {}", [event.address.toHexString()]);
-    return;
-  }
-
-  let order = new Order(event.transaction.hash);
-  
-  // FIXED: Make sure we're using the correct buyer field
-  order.buyer = event.params.buyer;
-  order.seller = storefront.owner;
-  order.storefront = storefront.id;
-  order.tokenId = event.params.tokenId;
-  order.amount = event.params.amount;
-  order.timestamp = event.block.timestamp;
-  order.blockNumber = event.block.number;
-  
-  // For simple orders, no escrow or affiliate
-  order.escrowContract = null;
-  order.affiliate = null;
-  order.affiliateShare = 0;
-  
-  order.save();
-  
-  log.info("Created simple order: {}, Buyer: {}, Seller: {}", [
-    order.id.toHexString(),
-    order.buyer.toHexString(),
-    order.seller.toHexString()
-  ]);
-}
-
-export function handleListingAddedSimple(event: ListingAddedEventSimple): void {
-  // Create the listing ID using event address and token ID
-  let id = event.address.toHexString() + "-" + event.params.tokenId.toString();
-  let listing = new TokenListing(id);
-  
-  let storefront = Storefront.load(event.address);
-  if (storefront !== null) {
-    let erc1155Contract = ReceiptERC1155.bind(Address.fromBytes(storefront.erc1155Token));
-    
-    // Get contract URI
-    let contractURIResult = erc1155Contract.try_contractURI();
-    if (!contractURIResult.reverted) {
-      listing.contractURI = contractURIResult.value;
-      let contractMetadataId = parseContractMetadata(contractURIResult.value);
-      if (contractMetadataId != '') {
-        listing.contractMetadata = contractMetadataId;
-      }
-    }
-    
-    // Get token URI
-    let tokenURIResult = erc1155Contract.try_uri(event.params.tokenId);
-    if (!tokenURIResult.reverted) {
-      listing.tokenURI = tokenURIResult.value;
-      let tokenMetadataId = parseTokenMetadata(tokenURIResult.value);
-      if (tokenMetadataId != '') {
-        listing.tokenMetadata = tokenMetadataId;
-      }
-    }
-  }
-
-  // Set the storefront reference using the event address directly
-  listing.storefront = event.address;
-  listing.tokenId = event.params.tokenId;
-  listing.price = event.params.price;
-  listing.paymentToken = event.params.paymentToken;
-  listing.listingTime = event.block.timestamp;
-  listing.active = true;
-  listing.createdAt = event.block.timestamp;
-  listing.createdAtBlock = event.block.number;
-  listing.creationTx = event.transaction.hash;
-  listing.lastUpdateAt = event.block.timestamp;
-  listing.lastUpdateTx = event.transaction.hash;
-  listing.affiliateFee = 0; // Default to 0 for simple storefront
-
-  listing.save();
-}
-
-export function handleListingUpdatedSimple(event: ListingUpdatedEventSimple): void {
-  let id = event.address.toHexString() + "-" + event.params.tokenId.toString();
-  let listing = TokenListing.load(id);
-  if (listing === null) return;
-  
-  let storefront = Storefront.load(event.address);
-  if (storefront !== null) {
-    let erc1155Contract = ReceiptERC1155.bind(Address.fromBytes(storefront.erc1155Token));
-    
-    // Update contract URI
-    let contractURIResult = erc1155Contract.try_contractURI();
-    if (!contractURIResult.reverted) {
-      listing.contractURI = contractURIResult.value;
-      let contractMetadataId = parseContractMetadata(contractURIResult.value);
-      if (contractMetadataId != '') {
-        listing.contractMetadata = contractMetadataId;
-      }
-    }
-    
-    // Update token URI
-    let tokenURIResult = erc1155Contract.try_uri(event.params.tokenId);
-    if (!tokenURIResult.reverted) {
-      listing.tokenURI = tokenURIResult.value;
-      let tokenMetadataId = parseTokenMetadata(tokenURIResult.value);
-      if (tokenMetadataId != '') {
-        listing.tokenMetadata = tokenMetadataId;
-      }
-    }
-  }
-
-  listing.price = event.params.newPrice;
-  listing.paymentToken = event.params.newPaymentToken;
-  listing.listingTime = event.block.timestamp;
-  listing.lastUpdateAt = event.block.timestamp;
-  listing.lastUpdateTx = event.transaction.hash;
-  listing.affiliateFee = 0; // Keep at 0 for simple storefront
-
-  listing.save();
-}
-
-export function handleListingRemovedSimple(event: ListingRemovedEventSimple): void {
-  let id = event.address.toHexString() + "-" + event.params.tokenId.toString();
-  let listing = TokenListing.load(id);
-  if (listing === null) return;
-
-  listing.active = false;
-  listing.lastUpdateAt = event.block.timestamp;
-  listing.lastUpdateTx = event.transaction.hash;
-  listing.save();
-}
-
-export function handleAffiliateListingAdded(event: AffiliateListingAddedEvent): void {
+export function handleListingAdded(event: AffiliateListingAddedEvent): void {
   let id = event.address.toHexString() + "-" + event.params.tokenId.toString();
   let listing = new TokenListing(id);
   
@@ -469,9 +212,16 @@ export function handleAffiliateListingAdded(event: AffiliateListingAddedEvent): 
   listing.affiliateFee = event.params.affiliateFee;
 
   listing.save();
+  
+  log.info("Created affiliate listing: {}, Token ID: {}, Price: {}, Fee: {}", [
+    id,
+    event.params.tokenId.toString(),
+    event.params.price.toString(),
+    event.params.affiliateFee.toString()
+  ]);
 }
 
-export function handleAffiliateListingUpdated(event: AffiliateListingUpdatedEvent): void {
+export function handleListingUpdated(event: AffiliateListingUpdatedEvent): void {
   let id = event.address.toHexString() + "-" + event.params.tokenId.toString();
   let listing = TokenListing.load(id);
   if (listing === null) return;
@@ -507,9 +257,15 @@ export function handleAffiliateListingUpdated(event: AffiliateListingUpdatedEven
   listing.affiliateFee = event.params.newAffiliateFee;
 
   listing.save();
+  
+  log.info("Updated affiliate listing: {}, New Price: {}, New Fee: {}", [
+    id,
+    event.params.newPrice.toString(),
+    event.params.newAffiliateFee.toString()
+  ]);
 }
 
-export function handleAffiliateListingRemoved(event: AffiliateListingRemovedEvent): void {
+export function handleListingRemoved(event: AffiliateListingRemovedEvent): void {
   let id = event.address.toHexString() + "-" + event.params.tokenId.toString();
   let listing = TokenListing.load(id);
   if (listing === null) return;
@@ -518,6 +274,11 @@ export function handleAffiliateListingRemoved(event: AffiliateListingRemovedEven
   listing.lastUpdateAt = event.block.timestamp;
   listing.lastUpdateTx = event.transaction.hash;
   listing.save();
+  
+  log.info("Removed affiliate listing: {}, Token ID: {}", [
+    id,
+    event.params.tokenId.toString()
+  ]);
 }
 
 export function handleReadyStateChanged(event: ReadyStateChangedEvent): void {
@@ -526,6 +287,11 @@ export function handleReadyStateChanged(event: ReadyStateChangedEvent): void {
 
   storefront.ready = event.params.newState;
   storefront.save();
+  
+  log.info("Updated storefront ready state: {}, New State: {}", [
+    event.address.toHexString(),
+    event.params.newState ? "true" : "false"
+  ]);
 }
 
 export function handleSettleDeadlineUpdated(event: SettleDeadlineUpdatedEvent): void {
@@ -534,18 +300,11 @@ export function handleSettleDeadlineUpdated(event: SettleDeadlineUpdatedEvent): 
 
   storefront.settleDeadline = event.params.newSettleDeadline;
   storefront.save();
-}
-
-export function handleListingAdded(event: AffiliateListingAddedEvent): void {
-  handleAffiliateListingAdded(event);
-}
-
-export function handleListingUpdated(event: AffiliateListingUpdatedEvent): void {
-  handleAffiliateListingUpdated(event);
-}
-
-export function handleListingRemoved(event: AffiliateListingRemovedEvent): void {
-  handleAffiliateListingRemoved(event);
+  
+  log.info("Updated storefront settle deadline: {}, New Deadline: {}", [
+    event.address.toHexString(),
+    event.params.newSettleDeadline.toString()
+  ]);
 }
 
 export function handleERC1155TokenAddressChanged(event: ERC1155TokenAddressChangedEvent): void {
@@ -555,4 +314,9 @@ export function handleERC1155TokenAddressChanged(event: ERC1155TokenAddressChang
   storefront.erc1155Token = event.params.newAddress;
   storefront.ready = false; // Ready state is reset when token address changes
   storefront.save();
+  
+  log.info("Updated storefront ERC1155 token address: {}, New Address: {}", [
+    event.address.toHexString(),
+    event.params.newAddress.toHexString()
+  ]);
 }

@@ -102,7 +102,7 @@ export function handleAffiliateOrderFulfilled(event: AffiliateOrderFulfilledEven
   
   // Affiliate-specific fields
   orderFulfilled.affiliate = event.params.affiliate;
-  orderFulfilled.affiliateShare = event.params.affiliateShare;
+  orderFulfilled.affiliateShare = BigInt.fromI32(event.params.affiliateShare);
   
   // Store the encrypted message fields
   orderFulfilled.encryptedData = event.params.encryptedData;
@@ -136,7 +136,7 @@ export function handleAffiliateOrderFulfilled(event: AffiliateOrderFulfilledEven
   // Set escrow contract and affiliate data
   order.escrowContract = event.params.escrowContract;
   order.affiliate = event.params.affiliate;
-  order.affiliateShare = event.params.affiliateShare;
+  order.affiliateShare = BigInt.fromI32(event.params.affiliateShare);
   
   order.save();
   

@@ -1,4 +1,4 @@
-import { log } from '@graphprotocol/graph-ts'
+import { log, BigInt } from '@graphprotocol/graph-ts'
 import { AffiliateEscrowCreated as AffiliateEscrowCreatedEvent } from "../generated/AffiliateEscrowFactory/AffiliateEscrowFactory"
 import { OrderEscrow, Order } from "../generated/schema"
 import { AffiliateEscrow } from "../generated/templates"
@@ -19,7 +19,7 @@ export function handleAffiliateEscrowCreated(event: AffiliateEscrowCreatedEvent)
   
   // Initialize affiliate fields
   orderEscrow.affiliate = null
-  orderEscrow.affiliateShare = 0
+  orderEscrow.affiliateShare = BigInt.fromI32(0)
   
   orderEscrow.blockNumber = event.block.number
   orderEscrow.blockTimestamp = event.block.timestamp

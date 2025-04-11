@@ -67,7 +67,7 @@ type Order @entity {
   
   # Affiliate-related fields
   affiliate: Bytes
-  affiliateShare: Int
+  affiliateShare: BigInt
 }
 
 type SaleAttestation @entity {
@@ -129,7 +129,7 @@ type OrderEscrow @entity {
   escapedEvents: [Escaped!]! @derivedFrom(field: "escrow")
   arbiterChangeEvents: [ArbiterChange!]! @derivedFrom(field: "escrow")
   affiliate: Bytes
-  affiliateShare: Int
+  affiliateShare: BigInt
   
   order: Order
   
@@ -267,7 +267,7 @@ type OrderFulfilled @entity {
   blockTimestamp: BigInt!
   transactionHash: Bytes!
   affiliate: Bytes
-  affiliateShare: Int
+  affiliateShare: BigInt
 }
 
 type OfferItem @entity {

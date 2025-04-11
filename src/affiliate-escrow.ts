@@ -65,7 +65,7 @@ export function handleAffiliateSettled(event: SettledEvent): void {
 
   // Update affiliate info in the escrow
   orderEscrow.affiliate = event.params.affiliate
-  orderEscrow.affiliateShare = event.params.affiliateAmount.toI32()
+  orderEscrow.affiliateShare = event.params.affiliateAmount
   orderEscrow.save()
 
   entity.save()

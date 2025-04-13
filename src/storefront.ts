@@ -178,6 +178,7 @@ export function handleListingAdded(event: AffiliateListingAddedEvent): void {
   if (storefront !== null) {
     let erc1155Contract = ReceiptERC1155.bind(Address.fromBytes(storefront.erc1155Token));
     
+    // Get contractURI for the listing and possibly update storefront
     let contractURIResult = erc1155Contract.try_contractURI();
     if (!contractURIResult.reverted) {
       listing.contractURI = contractURIResult.value;
@@ -185,8 +186,27 @@ export function handleListingAdded(event: AffiliateListingAddedEvent): void {
       if (contractMetadataId != '') {
         listing.contractMetadata = contractMetadataId;
       }
+      
+      // Update storefront's contractURI if it's not already set or has changed
+      if (!storefront.contractURI || storefront.contractURI != contractURIResult.value) {
+        storefront.contractURI = contractURIResult.value;
+        if (contractMetadataId != '') {
+          storefront.contractMetadata = contractMetadataId;
+        }
+        storefront.save();
+        log.info("Updated contractURI for storefront during listing creation: {}, URI: {}", [
+          event.address.toHexString(),
+          contractURIResult.value
+        ]);
+      }
+    } else {
+      log.warning("Failed to fetch contractURI for listing: {}, Token: {}", [
+        id,
+        storefront.erc1155Token.toHexString()
+      ]);
     }
     
+    // Get tokenURI for the specific token
     let tokenURIResult = erc1155Contract.try_uri(event.params.tokenId);
     if (!tokenURIResult.reverted) {
       listing.tokenURI = tokenURIResult.value;
@@ -194,6 +214,10 @@ export function handleListingAdded(event: AffiliateListingAddedEvent): void {
       if (tokenMetadataId != '') {
         listing.tokenMetadata = tokenMetadataId;
       }
+    } else {
+      log.warning("Failed to fetch tokenURI for token ID: {}", [
+        event.params.tokenId.toString()
+      ]);
     }
   }
 
@@ -230,15 +254,36 @@ export function handleListingUpdated(event: AffiliateListingUpdatedEvent): void 
   if (storefront !== null) {
     let erc1155Contract = ReceiptERC1155.bind(Address.fromBytes(storefront.erc1155Token));
     
+    // Get latest contractURI
     let contractURIResult = erc1155Contract.try_contractURI();
     if (!contractURIResult.reverted) {
+      // Update listing contractURI
       listing.contractURI = contractURIResult.value;
       let contractMetadataId = parseContractMetadata(contractURIResult.value);
       if (contractMetadataId != '') {
         listing.contractMetadata = contractMetadataId;
       }
+      
+      // Update storefront's contractURI if it's not already set or has changed
+      if (!storefront.contractURI || storefront.contractURI != contractURIResult.value) {
+        storefront.contractURI = contractURIResult.value;
+        if (contractMetadataId != '') {
+          storefront.contractMetadata = contractMetadataId;
+        }
+        storefront.save();
+        log.info("Updated contractURI for storefront during listing update: {}, URI: {}", [
+          event.address.toHexString(),
+          contractURIResult.value
+        ]);
+      }
+    } else {
+      log.warning("Failed to fetch contractURI for listing update: {}, Token: {}", [
+        id,
+        storefront.erc1155Token.toHexString()
+      ]);
     }
     
+    // Get latest tokenURI
     let tokenURIResult = erc1155Contract.try_uri(event.params.tokenId);
     if (!tokenURIResult.reverted) {
       listing.tokenURI = tokenURIResult.value;
@@ -246,9 +291,14 @@ export function handleListingUpdated(event: AffiliateListingUpdatedEvent): void 
       if (tokenMetadataId != '') {
         listing.tokenMetadata = tokenMetadataId;
       }
+    } else {
+      log.warning("Failed to fetch tokenURI for token ID: {}", [
+        event.params.tokenId.toString()
+      ]);
     }
   }
 
+  // Update listing data
   listing.price = event.params.newPrice;
   listing.paymentToken = event.params.newPaymentToken;
   listing.listingTime = event.block.timestamp;
@@ -258,9 +308,11 @@ export function handleListingUpdated(event: AffiliateListingUpdatedEvent): void 
 
   listing.save();
   
-  log.info("Updated affiliate listing: {}, New Price: {}, New Fee: {}", [
+  log.info("Updated affiliate listing: {}, Old Price: {}, New Price: {}, Old Fee: {}, New Fee: {}", [
     id,
+    event.params.oldPrice.toString(),
     event.params.newPrice.toString(),
+    event.params.oldAffiliateFee.toString(),
     event.params.newAffiliateFee.toString()
   ]);
 }
@@ -311,12 +363,37 @@ export function handleERC1155TokenAddressChanged(event: ERC1155TokenAddressChang
   let storefront = Storefront.load(event.address);
   if (storefront === null) return;
 
+  let oldAddress = storefront.erc1155Token;
   storefront.erc1155Token = event.params.newAddress;
   storefront.ready = false; // Ready state is reset when token address changes
+  
+  // Update contractURI when token address changes
+  let erc1155Contract = ReceiptERC1155.bind(Address.fromBytes(event.params.newAddress));
+  let contractURIResult = erc1155Contract.try_contractURI();
+  if (!contractURIResult.reverted) {
+    // Only update if the contractURI has changed or wasn't set
+    if (!storefront.contractURI || storefront.contractURI != contractURIResult.value) {
+      storefront.contractURI = contractURIResult.value;
+      let contractMetadataId = parseContractMetadata(contractURIResult.value);
+      if (contractMetadataId != '') {
+        storefront.contractMetadata = contractMetadataId;
+      }
+      log.info("Updated contractURI for storefront after token change: {}, Old Token: {}, New Token: {}, URI: {}", [
+        event.address.toHexString(),
+        oldAddress.toHexString(),
+        event.params.newAddress.toHexString(),
+        contractURIResult.value
+      ]);
+    }
+  } else {
+    log.warning("Failed to fetch contractURI for new token: {}", [event.params.newAddress.toHexString()]);
+  }
+  
   storefront.save();
   
-  log.info("Updated storefront ERC1155 token address: {}, New Address: {}", [
+  log.info("Updated storefront ERC1155 token address: {}, Old Address: {}, New Address: {}", [
     event.address.toHexString(),
+    oldAddress.toHexString(),
     event.params.newAddress.toHexString()
   ]);
 }

@@ -7,7 +7,7 @@ dataSources:
     name: AffiliateERC1155StorefrontFactory
     network: base
     source:
-      address: "0x59321B6B3AA8573DD33A6314cb48C6849Cd55C72" 
+      address: "0xd0dE2B250F0b65C66F318797083558Ac9eACE836" 
       abi: AffiliateERC1155StorefrontFactory
       startBlock: 28301638 
     mapping:
@@ -21,6 +21,8 @@ dataSources:
           file: ./abis/AffiliateERC1155StorefrontFactory.json
         - name: AffiliateERC1155Storefront
           file: ./abis/AffiliateERC1155Storefront.json
+        - name: ReceiptERC1155
+          file: ./abis/ReceiptERC1155.json
       eventHandlers:
         - event: StorefrontCreated(indexed address,indexed address,address,address,address,string)
           handler: handleAffiliateStorefrontCreated
@@ -30,7 +32,7 @@ dataSources:
     name: AffiliateEscrowFactory
     network: base
     source:
-      address: "0xE07c41Bc76A8B56ad7E996cF60A3dDeD96ca575D"
+      address: "0xA4062c63c47aF497a7daC93b96205E8b145A0cd1"
       abi: AffiliateEscrowFactory
       startBlock: 28301638
     mapping:
@@ -135,6 +137,8 @@ dataSources:
       abis:
         - name: CurationStorefront
           file: ./abis/CurationStorefront.json
+        - name: ReceiptERC1155
+          file: ./abis/ReceiptERC1155.json
       eventHandlers:
         - event: CurationCreated(indexed uint256,string,string,address)
           handler: handleCurationCreated

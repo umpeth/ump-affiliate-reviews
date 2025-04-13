@@ -17,6 +17,10 @@ type Storefront @entity {
   isAffiliateEnabled: Boolean!
   affiliateVerifier: Bytes
   
+  # Contract metadata fields
+  contractURI: String
+  contractMetadata: ERC1155ContractMetadata
+  
   # Review-related fields
   totalRating: BigInt!
   reviewCount: BigInt!

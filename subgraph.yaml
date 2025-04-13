@@ -7,9 +7,9 @@ dataSources:
     name: AffiliateERC1155StorefrontFactory
     network: base
     source:
-      address: "0xd0dE2B250F0b65C66F318797083558Ac9eACE836" 
+      address: "0x59321B6B3AA8573DD33A6314cb48C6849Cd55C72" 
       abi: AffiliateERC1155StorefrontFactory
-      startBlock: 28795984 
+      startBlock: 28301638 
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -32,9 +32,9 @@ dataSources:
     name: AffiliateEscrowFactory
     network: base
     source:
-      address: "0xA4062c63c47aF497a7daC93b96205E8b145A0cd1"
+      address: "0xE07c41Bc76A8B56ad7E996cF60A3dDeD96ca575D"
       abi: AffiliateEscrowFactory
-      startBlock: 28795984
+      startBlock: 28301638
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -57,7 +57,7 @@ dataSources:
     source:
       address: "0x0000000000000068F116a894984e2DB1123eB395"
       abi: Seaport
-      startBlock: 28795984
+      startBlock: 28301638
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -82,7 +82,7 @@ dataSources:
     source:
       address: "0xD7dd33f5815E499DA3DeaB5C812489c5e454eD7E"
       abi: SaleAttestationResolver
-      startBlock: 28795984
+      startBlock: 28301638
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -103,7 +103,7 @@ dataSources:
     source:
       address: "0xB09d28897dB473b66A31a3659ae5BA75A2Ad9703"  
       abi: ReviewResolver
-      startBlock: 28795984
+      startBlock: 28301638
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -124,7 +124,7 @@ dataSources:
     source:
       address: "0xdFCA83ff7544Acb88B5D04A9101d58780243E0cb"
       abi: CurationStorefront
-      startBlock: 28795984 
+      startBlock: 28301638 
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7

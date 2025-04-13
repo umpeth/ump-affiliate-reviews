@@ -1,4 +1,4 @@
-import { BigInt, Address, ByteArray, crypto, Bytes, json, log } from "@graphprotocol/graph-ts"
+import { BigInt, Address, ByteArray, crypto, Bytes, log } from "@graphprotocol/graph-ts"
 
 /**
  * Safely get a string representation of an address that might be null
@@ -35,19 +35,106 @@ import {
 function parseContractMetadata(uri: string): string {
   let id = crypto.keccak256(ByteArray.fromUTF8(uri)).toHexString()
   let metadata = new ERC1155ContractMetadata(id)
-  metadata.rawJson = uri // Just store the URI string
+  
+  // Store the raw JSON string
+  metadata.rawJson = uri
+  
+  // Basic JSON parsing using string operations
+  // Extract values between quotes after specific keys
+  
+  // Extract name
+  let nameStart = uri.indexOf('"name"')
+  if (nameStart >= 0) {
+    nameStart = uri.indexOf(':', nameStart) + 1
+    // Skip whitespace
+    while (nameStart < uri.length && (uri.charAt(nameStart) == ' ' || uri.charAt(nameStart) == '\t')) {
+      nameStart++
+    }
+    
+    if (nameStart < uri.length && uri.charAt(nameStart) == '"') {
+      nameStart++ // Skip opening quote
+      let nameEnd = uri.indexOf('"', nameStart)
+      if (nameEnd > nameStart) {
+        metadata.name = uri.substring(nameStart, nameEnd)
+      }
+    }
+  }
+  
+  // Extract description
+  let descStart = uri.indexOf('"description"')
+  if (descStart >= 0) {
+    descStart = uri.indexOf(':', descStart) + 1
+    // Skip whitespace
+    while (descStart < uri.length && (uri.charAt(descStart) == ' ' || uri.charAt(descStart) == '\t')) {
+      descStart++
+    }
+    
+    if (descStart < uri.length && uri.charAt(descStart) == '"') {
+      descStart++ // Skip opening quote
+      let descEnd = uri.indexOf('"', descStart)
+      if (descEnd > descStart) {
+        metadata.description = uri.substring(descStart, descEnd)
+      }
+    }
+  }
+  
+  // Extract image
+  let imageStart = uri.indexOf('"image"')
+  if (imageStart >= 0) {
+    imageStart = uri.indexOf(':', imageStart) + 1
+    // Skip whitespace
+    while (imageStart < uri.length && (uri.charAt(imageStart) == ' ' || uri.charAt(imageStart) == '\t')) {
+      imageStart++
+    }
+    
+    if (imageStart < uri.length && uri.charAt(imageStart) == '"') {
+      imageStart++ // Skip opening quote
+      let imageEnd = uri.indexOf('"', imageStart)
+      if (imageEnd > imageStart) {
+        metadata.image = uri.substring(imageStart, imageEnd)
+      }
+    }
+  }
+  
+  // Extract external link
+  let linkStart = uri.indexOf('"external_link"')
+  if (linkStart < 0) {
+    linkStart = uri.indexOf('"external_url"') // Try alternative key
+  }
+  
+  if (linkStart >= 0) {
+    linkStart = uri.indexOf(':', linkStart) + 1
+    // Skip whitespace
+    while (linkStart < uri.length && (uri.charAt(linkStart) == ' ' || uri.charAt(linkStart) == '\t')) {
+      linkStart++
+    }
+    
+    if (linkStart < uri.length && uri.charAt(linkStart) == '"') {
+      linkStart++ 
+      let linkEnd = uri.indexOf('"', linkStart)
+      if (linkEnd > linkStart) {
+        metadata.externalLink = uri.substring(linkStart, linkEnd)
+      }
+    }
+  }
+  
+  log.info("Processed contractURI metadata with ID: {}", [id])
+  
+  metadata.save()
+  return id
+}
+function parseTokenMetadata(uri: string): string {
+  let id = crypto.keccak256(ByteArray.fromUTF8(uri)).toHexString()
+  let metadata = new ERC1155TokenMetadata(id)
+  
+  // Store the raw token URI data
+  metadata.rawEncodedJson = uri
+  metadata.rawJson = uri
+  
   metadata.save()
   return id
 }
 
-function parseTokenMetadata(uri: string): string {
-  let id = crypto.keccak256(ByteArray.fromUTF8(uri)).toHexString()
-  let metadata = new ERC1155TokenMetadata(id)
-  metadata.rawEncodedJson = uri
-  metadata.rawJson = uri
-  metadata.save()
-  return id
-}
 
 /**
  * Handle order fulfillment for affiliate storefronts

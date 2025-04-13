@@ -1,4 +1,4 @@
-import { BigInt, Bytes, log } from "@graphprotocol/graph-ts";
+import { BigInt, Bytes, log, crypto, ByteArray } from "@graphprotocol/graph-ts";
 import { StorefrontCreated as AffiliateStorefrontCreatedEvent } from "../generated/AffiliateERC1155StorefrontFactory/AffiliateERC1155StorefrontFactory";
 import { AffiliateERC1155Storefront as AffiliateERC1155StorefrontContract } from "../generated/AffiliateERC1155StorefrontFactory/AffiliateERC1155Storefront";
 import { ReceiptERC1155 } from "../generated/AffiliateERC1155StorefrontFactory/ReceiptERC1155";
@@ -9,7 +9,91 @@ import { Address, ByteArray, crypto } from "@graphprotocol/graph-ts";
 function parseContractMetadata(uri: string): string {
   let id = crypto.keccak256(ByteArray.fromUTF8(uri)).toHexString()
   let metadata = new ERC1155ContractMetadata(id)
-  metadata.rawJson = uri // Just store the URI string
+  
+  // Store the raw JSON string
+  metadata.rawJson = uri
+  
+  // Basic JSON parsing using string operations
+  // Extract values between quotes after specific keys
+  
+  // Extract name
+  let nameStart = uri.indexOf('"name"')
+  if (nameStart >= 0) {
+    nameStart = uri.indexOf(':', nameStart) + 1
+    // Skip whitespace
+    while (nameStart < uri.length && (uri.charAt(nameStart) == ' ' || uri.charAt(nameStart) == '\t')) {
+      nameStart++
+    }
+    
+    if (nameStart < uri.length && uri.charAt(nameStart) == '"') {
+      nameStart++ 
+      let nameEnd = uri.indexOf('"', nameStart)
+      if (nameEnd > nameStart) {
+        metadata.name = uri.substring(nameStart, nameEnd)
+      }
+    }
+  }
+  
+  // Extract description
+  let descStart = uri.indexOf('"description"')
+  if (descStart >= 0) {
+    descStart = uri.indexOf(':', descStart) + 1
+    // Skip whitespace
+    while (descStart < uri.length && (uri.charAt(descStart) == ' ' || uri.charAt(descStart) == '\t')) {
+      descStart++
+    }
+    
+    if (descStart < uri.length && uri.charAt(descStart) == '"') {
+      descStart++ 
+      let descEnd = uri.indexOf('"', descStart)
+      if (descEnd > descStart) {
+        metadata.description = uri.substring(descStart, descEnd)
+      }
+    }
+  }
+  
+  // Extract image
+  let imageStart = uri.indexOf('"image"')
+  if (imageStart >= 0) {
+    imageStart = uri.indexOf(':', imageStart) + 1
+    // Skip whitespace
+    while (imageStart < uri.length && (uri.charAt(imageStart) == ' ' || uri.charAt(imageStart) == '\t')) {
+      imageStart++
+    }
+    
+    if (imageStart < uri.length && uri.charAt(imageStart) == '"') {
+      imageStart++ 
+      let imageEnd = uri.indexOf('"', imageStart)
+      if (imageEnd > imageStart) {
+        metadata.image = uri.substring(imageStart, imageEnd)
+      }
+    }
+  }
+  
+  // Extract external link
+  let linkStart = uri.indexOf('"external_link"')
+  if (linkStart < 0) {
+    linkStart = uri.indexOf('"external_url"') // Try alternative key
+  }
+  
+  if (linkStart >= 0) {
+    linkStart = uri.indexOf(':', linkStart) + 1
+    // Skip whitespace
+    while (linkStart < uri.length && (uri.charAt(linkStart) == ' ' || uri.charAt(linkStart) == '\t')) {
+      linkStart++
+    }
+    
+    if (linkStart < uri.length && uri.charAt(linkStart) == '"') {
+      linkStart++ // Skip opening quote
+      let linkEnd = uri.indexOf('"', linkStart)
+      if (linkEnd > linkStart) {
+        metadata.externalLink = uri.substring(linkStart, linkEnd)
+      }
+    }
+  }
+  
+  log.info("Processed contractURI metadata with ID: {}", [id])
+  
   metadata.save()
   return id
 }

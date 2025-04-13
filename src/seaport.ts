@@ -15,43 +15,104 @@ import { ReceiptERC1155 } from "../generated/Seaport/ReceiptERC1155"
 import { json } from '@graphprotocol/graph-ts'
 
 function parseContractMetadata(uri: string): string {
-  let parsed = json.try_fromString(uri)
-  if (parsed.isOk) {
-    let obj = parsed.value.toObject()
-    let id = crypto.keccak256(ByteArray.fromUTF8(uri)).toHexString()
+  let id = crypto.keccak256(ByteArray.fromUTF8(uri)).toHexString()
+  let metadata = new ERC1155ContractMetadata(id)
+  
+  // Store the raw JSON string
+  metadata.rawJson = uri
+  
+  // Basic JSON parsing using string operations
+  // Extract values between quotes after specific keys
+  
+  // Extract name
+  let nameStart = uri.indexOf('"name"')
+  if (nameStart >= 0) {
+    nameStart = uri.indexOf(':', nameStart) + 1
+    // Skip whitespace
+    while (nameStart < uri.length && (uri.charAt(nameStart) == ' ' || uri.charAt(nameStart) == '\t')) {
+      nameStart++
+    }
     
-    let metadata = new ERC1155ContractMetadata(id)
-    metadata.rawJson = uri
-    
-    let name = obj.get('name')
-    if (name) metadata.name = name.toString()
-    
-    let description = obj.get('description')
-    if (description) metadata.description = description.toString()
-    
-    let image = obj.get('image')
-    if (image) metadata.image = image.toString()
-    
-    let externalLink = obj.get('external_link')
-    if (externalLink) metadata.externalLink = externalLink.toString()
-    
-    metadata.save()
-    return id
+    if (nameStart < uri.length && uri.charAt(nameStart) == '"') {
+      nameStart++ // Skip opening quote
+      let nameEnd = uri.indexOf('"', nameStart)
+      if (nameEnd > nameStart) {
+        metadata.name = uri.substring(nameStart, nameEnd)
+      }
+    }
   }
-  return ''
+  
+  // Extract description
+  let descStart = uri.indexOf('"description"')
+  if (descStart >= 0) {
+    descStart = uri.indexOf(':', descStart) + 1
+    // Skip whitespace
+    while (descStart < uri.length && (uri.charAt(descStart) == ' ' || uri.charAt(descStart) == '\t')) {
+      descStart++
+    }
+    
+    if (descStart < uri.length && uri.charAt(descStart) == '"') {
+      descStart++ // Skip opening quote
+      let descEnd = uri.indexOf('"', descStart)
+      if (descEnd > descStart) {
+        metadata.description = uri.substring(descStart, descEnd)
+      }
+    }
+  }
+  
+  // Extract image
+  let imageStart = uri.indexOf('"image"')
+  if (imageStart >= 0) {
+    imageStart = uri.indexOf(':', imageStart) + 1
+    // Skip whitespace
+    while (imageStart < uri.length && (uri.charAt(imageStart) == ' ' || uri.charAt(imageStart) == '\t')) {
+      imageStart++
+    }
+    
+    if (imageStart < uri.length && uri.charAt(imageStart) == '"') {
+      imageStart++ // Skip opening quote
+      let imageEnd = uri.indexOf('"', imageStart)
+      if (imageEnd > imageStart) {
+        metadata.image = uri.substring(imageStart, imageEnd)
+      }
+    }
+  }
+  
+  // Extract external link
+  let linkStart = uri.indexOf('"external_link"')
+  if (linkStart < 0) {
+    linkStart = uri.indexOf('"external_url"') // Try alternative key
+  }
+  
+  if (linkStart >= 0) {
+    linkStart = uri.indexOf(':', linkStart) + 1
+    // Skip whitespace
+    while (linkStart < uri.length && (uri.charAt(linkStart) == ' ' || uri.charAt(linkStart) == '\t')) {
+      linkStart++
+    }
+    
+    if (linkStart < uri.length && uri.charAt(linkStart) == '"') {
+      linkStart++ // Skip opening quote
+      let linkEnd = uri.indexOf('"', linkStart)
+      if (linkEnd > linkStart) {
+        metadata.externalLink = uri.substring(linkStart, linkEnd)
+      }
+    }
+  }
+  
+  log.info("Processed contractURI metadata with ID: {}", [id])
+  
+  metadata.save()
+  return id
 }
 
 function parseTokenMetadata(uri: string): string {
   let id = crypto.keccak256(ByteArray.fromUTF8(uri)).toHexString()
   let metadata = new ERC1155TokenMetadata(id)
   
-  // Store the full base64 encoded data
+  // Store the raw token URI data
   metadata.rawEncodedJson = uri
-  
-  // If it starts with our expected prefix, store the base64 part separately
-  if (uri.startsWith('data:application/json;base64,')) {
-    metadata.rawJson = uri.slice('data:application/json;base64,'.length)
-  }
+  metadata.rawJson = uri
   
   metadata.save()
   return id

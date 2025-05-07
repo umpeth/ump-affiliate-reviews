@@ -116,7 +116,13 @@ type OrderEscrow @entity {
   id: ID!
   escrowAddress: Bytes!
   payee: Bytes!
-  storefront: Bytes!
+  
+  # Can be either a storefront or auction house address
+  sourceAddress: Bytes!
+  
+  # Type of source (STOREFRONT or AUCTION_HOUSE)
+  sourceType: EscrowSourceType!
+  
   arbiter: Bytes!
   isDisputed: Boolean!
   isRefunded: Boolean!
@@ -135,10 +141,17 @@ type OrderEscrow @entity {
   affiliate: Bytes
   affiliateShare: BigInt
   
+  # Reference to order or auction (only one will be non-null)
   order: Order
+  auction: Auction
   
   # Multiple sale attestations for this escrow contract
   attestations: [SaleAttestation!]! @derivedFrom(field: "escrowContract")
+}
+
+enum EscrowSourceType {
+  STOREFRONT
+  AUCTION_HOUSE
 }
 
 type OrderPayment @entity {
@@ -351,6 +364,185 @@ type CurationListing @entity {
   contractMetadata: ERC1155ContractMetadata
   erc1155Token: Bytes
 }
+
+# AUCTION HOUSE ENTITIES
+
+type AuctionHouse @entity {
+  id: Bytes! # auction house address
+  auctionHouseAddress: Bytes! @index(unique: true)
+  owner: Bytes!
+  name: String!
+  image: String!
+  description: String!
+  settlementDeadline: BigInt!
+  version: String!
+  createdAt: BigInt!
+  createdAtBlock: BigInt!
+  creationTx: Bytes!
+  
+  # Additional metadata fields from enhanced event
+  contractURI: String
+  symbol: String
+  
+  # Relationships
+  auctions: [Auction!]! @derivedFrom(field: "auctionHouse")
+  
+  # Metadata
+  lastUpdatedAt: BigInt
+  lastUpdatedTx: Bytes
+}
+
+type Auction @entity {
+  id: ID! # auctionHouse address + "-" + auctionId
+  auctionId: BigInt!
+  auctionHouse: AuctionHouse!
+  tokenId: BigInt!
+  tokenContract: Bytes!
+  tokenReference: AuctionItemERC721Token # Add this reference for proper derivation
+  highestBid: BigInt!
+  duration: BigInt!
+  startTime: BigInt!
+  endTime: BigInt!
+  reservePrice: BigInt!
+  affiliateFee: Int! # In basis points (0-10000)
+  auctionOwner: Bytes!
+  arbiter: Bytes!
+  auctionCurrency: Bytes! # address(0) for ETH
+  minBidIncrementBps: Int!
+  isPremiumAuction: Boolean!
+  premiumBps: Int!
+  timeExtension: BigInt!
+  paymentAmount: BigInt!
+  
+  # Current state
+  currentBidder: Bytes
+  currentAffiliate: Bytes
+  highestBidAmount: BigInt!
+  escrowAddress: Bytes
+  status: AuctionStatus!
+  tokenMetadata: AuctionItemERC721Metadata
+  currentWinningBid: Bid
+  
+  # Relationships
+  bids: [Bid!]! @derivedFrom(field: "auction")
+  encryptedMessages: [EncryptedMessage!]! @derivedFrom(field: "auction")
+  premiumPayments: [PremiumPayment!]! @derivedFrom(field: "auction")
+  escrow: OrderEscrow
+  
+  # Analytics
+  totalBidCount: Int!
+  totalPremiumPaid: BigInt!
+  wasExtended: Boolean!
+  extensionCount: Int!
+  
+  # Timestamps
+  createdAt: BigInt!
+  createdAtBlock: BigInt!
+  creationTx: Bytes!
+  lastUpdatedAt: BigInt!
+  lastUpdatedTx: Bytes!
+  endedAt: BigInt
+  endedAtBlock: BigInt
+  endedTx: Bytes
+}
+
+type Bid @entity {
+  id: ID! # transaction hash + "-" + log index
+  auction: Auction!
+  bidder: Bytes!
+  amount: BigInt!
+  affiliate: Bytes
+  isWinningBid: Boolean!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+  
+  # Related entities
+  encryptedMessage: EncryptedMessage
+}
+
+type EncryptedMessage @entity {
+  id: ID! # transaction hash + "-" + log index
+  auction: Auction!
+  bidder: Bytes!
+  encryptedData: Bytes
+  ephemeralPublicKey: Bytes
+  iv: Bytes
+  verificationHash: Bytes
+  isFinal: Boolean!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+}
+
+type PremiumPayment @entity {
+  id: ID! # transaction hash + "-" + log index
+  auction: Auction!
+  outbidUser: Bytes!
+  newBidder: Bytes!
+  originalBid: BigInt!
+  premiumAmount: BigInt!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+}
+
+type AuctionItemERC721 @entity {
+  id: Bytes! # token contract address
+  tokenAddress: Bytes! @index(unique: true)
+  name: String!
+  symbol: String!
+  contractURI: String
+  owner: Bytes!
+  
+  # Tokens
+  tokens: [AuctionItemERC721Token!]! @derivedFrom(field: "contract")
+  
+  # Metadata
+  createdAt: BigInt!
+  createdAtBlock: BigInt!
+  creationTx: Bytes!
+  lastUpdatedAt: BigInt
+  lastUpdatedTx: Bytes
+}
+
+type AuctionItemERC721Token @entity {
+  id: ID! # contract address + "-" + tokenId
+  contract: AuctionItemERC721!
+  tokenId: BigInt!
+  owner: Bytes!
+  
+  # Metadata
+  metadata: AuctionItemERC721Metadata
+  
+  # Auction history
+  auctions: [Auction!]! @derivedFrom(field: "tokenReference")
+  
+  # Timestamps
+  createdAt: BigInt!
+  createdAtBlock: BigInt!
+  creationTx: Bytes!
+  lastTransferredAt: BigInt
+  lastTransferredTx: Bytes
+}
+
+type AuctionItemERC721Metadata @entity {
+  id: ID! # hash of metadata
+  name: String
+  description: String
+  image: String
+  termsOfService: String
+  supplementalImages: [String!]
+  rawJson: String!
+}
+
+enum AuctionStatus {
+  CREATED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
 type _Schema_ @fulltext(
   name: "reviewSearch"
   language: en

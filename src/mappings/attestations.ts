@@ -10,7 +10,7 @@ function safeAddressToString(address: Bytes | null): string {
   return address.toHexString();
 }
 
-import { SaleAttestation, Review, Order, Storefront, OrderEscrow } from '../../generated/schema'
+import { SaleAttestation, Review, Order, Storefront, OrderEscrow, Auction, AuctionHouse } from '../../generated/schema'
 import { ReviewSubmitted } from '../../generated/ReviewResolver/ReviewResolver'
 import { SaleAttested } from '../../generated/SaleResolver/SaleAttestationResolver'
 
@@ -25,17 +25,10 @@ export function handleSaleAttested(event: SaleAttested): void {
     event.params.transactionHash.toHexString()
   ])
 
-  // Look up the order using transaction hash
+  // Look up the order or auction using transaction hash
   let order = Order.load(event.params.transactionHash)
-  if (order === null) {
-    log.error("Order not found for sale attestation. TX Hash: {}", [
-      event.params.transactionHash.toHexString()
-    ])
-    return
-  }
-
-  // Get the OrderEscrow entity - we need to make sure it exists before creating the attestation
   let escrowEntity = OrderEscrow.load(event.params.escrowContract.toHexString())
+  
   if (escrowEntity === null) {
     log.error("Escrow contract not found: {}", [event.params.escrowContract.toHexString()])
     return
@@ -45,71 +38,109 @@ export function handleSaleAttested(event: SaleAttested): void {
   let attestation = new SaleAttestation(event.params.uid)
   attestation.transactionHash = event.params.transactionHash
   attestation.attestationTxHash = event.transaction.hash
-  attestation.order = order.id
   attestation.buyer = event.params.buyer
   attestation.seller = event.params.seller
-  attestation.storefront = order.storefront
   attestation.escrowContract = event.params.escrowContract.toHexString()
   attestation.storefrontContract = event.params.storefrontContract
   attestation.timestamp = event.block.timestamp
   attestation.blockNumber = event.block.number
   
-  // Determine if this is the latest attestation based on timestamp
-  let isLatest = true
-  
-  // If there's already a latest attestation ID stored in the order
-  if (order.latestAttestationId) {
-    let currentLatestId = order.latestAttestationId as Bytes
-    let currentLatest = SaleAttestation.load(currentLatestId)
-    if (currentLatest) {
-      isLatest = event.block.timestamp.gt(currentLatest.timestamp)
+  // Check if this is for a storefront or auction
+  if (order !== null) {
+    // This is for a storefront order
+    attestation.order = order.id
+    attestation.storefront = order.storefront
+    
+    // Determine if this is the latest attestation based on timestamp
+    let isLatest = true
+    
+    // If there's already a latest attestation ID stored in the order
+    if (order.latestAttestationId) {
+      let currentLatestId = order.latestAttestationId as Bytes
+      let currentLatest = SaleAttestation.load(currentLatestId)
+      if (currentLatest) {
+        isLatest = event.block.timestamp.gt(currentLatest.timestamp)
+      }
     }
+    
+    // Set the isLatest flag based on our determination
+    attestation.isLatest = isLatest
+    
+    // If this is the latest attestation, update the order
+    if (isLatest) {
+      order.latestAttestationId = event.params.uid
+      order.latestAttestationTimestamp = event.block.timestamp
+      
+      // Check if we need to update the order with the correct buyer
+      if (!order.buyer.equals(event.params.buyer)) {
+        log.warning(
+          "Buyer mismatch detected! Order buyer: {}, Attestation buyer: {}. Fixing...",
+          [order.buyer.toHexString(), event.params.buyer.toHexString()]
+        )
+        
+        // Update the order with the correct buyer from the attestation
+        order.buyer = event.params.buyer
+      }
+      
+      order.save()
+      log.info("Updated order with latest attestation ID: {}", [event.params.uid.toHexString()])
+    }
+  } else if (escrowEntity.auction !== null) {
+    // This is for an auction
+    let auction = Auction.load(escrowEntity.auction as string)
+    if (auction !== null) {
+      attestation.storefront = auction.auctionHouse // Using auctionHouse as storefront for consistency
+      
+      // For auctions, we typically only have one attestation per auction
+      attestation.isLatest = true
+      
+      // Record the attestation in the auction entity if needed
+      // Fix null check to handle Bytes | null properly
+      if (auction.currentBidder !== null) {
+        let currentBidder = auction.currentBidder as Bytes
+        if (!currentBidder.equals(event.params.buyer)) {
+          log.warning(
+            "Buyer mismatch detected! Auction winner: {}, Attestation buyer: {}. Fixing...",
+            [currentBidder.toHexString(), event.params.buyer.toHexString()]
+          )
+        }
+      }
+      
+      // Update auction with attestation information
+      auction.lastUpdatedAt = event.block.timestamp
+      auction.lastUpdatedTx = event.transaction.hash
+      auction.save()
+      
+      log.info("Created auction attestation - Auction: {}, UID: {}", [
+        auction.id,
+        attestation.id.toHexString()
+      ])
+    }
+  } else {
+    log.warning("Neither order nor auction found for sale attestation: {}", [
+      event.params.transactionHash.toHexString()
+    ])
+    // Still proceed with creating the attestation
+    attestation.storefront = event.params.storefrontContract
+    attestation.isLatest = true
   }
-  
-  // Set the isLatest flag based on our determination
-  attestation.isLatest = isLatest
-  
+
   // Try to get the fee paid for this attestation from the transaction
   let txGasPrice = event.transaction.gasPrice
   attestation.attestationFee = txGasPrice
 
   attestation.save()
 
-  // If this is the latest attestation, update the order
-  if (isLatest) {
-    order.latestAttestationId = event.params.uid
-    order.latestAttestationTimestamp = event.block.timestamp
-    
-    // Check if we need to update the order with the correct buyer
-    if (!order.buyer.equals(event.params.buyer)) {
-      log.warning(
-        "Buyer mismatch detected! Order buyer: {}, Attestation buyer: {}. Fixing...",
-        [order.buyer.toHexString(), event.params.buyer.toHexString()]
-      )
-      
-      // Update the order with the correct buyer from the attestation
-      order.buyer = event.params.buyer
-    }
-    
-    order.save()
-    log.info("Updated order with latest attestation ID: {}", [event.params.uid.toHexString()])
-  }
-
-  // We've already checked that the escrow contract exists 
-  // and we've linked the attestation to it.
-  // Now update the order field on the escrow if it's not already set
-  if (escrowEntity.order === null) {
+  // Update the escrow entity's order/auction reference if needed
+  if (escrowEntity.order === null && order !== null) {
     escrowEntity.order = order.id
     escrowEntity.save()
     log.info("Linked escrow contract to order: {}", [escrowEntity.id])
   }
 
-  log.info("Created sale attestation - UID: {}, Order ID: {}, Buyer: {}, Seller: {}, IsLatest: {}", [
+  log.info("Created sale attestation - UID: {}, IsLatest: {}", [
     attestation.id.toHexString(),
-    order.id.toHexString(), 
-    attestation.buyer.toHexString(),
-    attestation.seller.toHexString(),
-    isLatest.toString()
+    attestation.isLatest.toString()
   ])
 }
 
@@ -133,19 +164,24 @@ export function handleReviewSubmitted(event: ReviewSubmitted): void {
     return
   }
 
-  // Load the storefront to connect the review
-  let order = Order.load(saleAttestation.order)
-  if (order === null) {
-    log.error("Order not found for review. Order ID: {}", [
-      saleAttestation.order.toHexString()
-    ])
-    return
+  // Determine if this is for a storefront or auction house
+  let storefrontEntity: Storefront | null = null
+  let auctionHouseEntity: AuctionHouse | null = null
+  
+  if (saleAttestation.order !== null) {
+    // This is for a storefront
+    let order = Order.load(saleAttestation.order)
+    if (order !== null) {
+      storefrontEntity = Storefront.load(order.storefront)
+    }
+  } else {
+    // Check if this is for an auction house
+    auctionHouseEntity = AuctionHouse.load(saleAttestation.storefront)
   }
-
-  let storefront = Storefront.load(order.storefront)
-  if (storefront === null) {
-    log.error("Storefront not found for review. Storefront ID: {}", [
-      order.storefront.toHexString()
+  
+  if (storefrontEntity === null && auctionHouseEntity === null) {
+    log.error("Neither storefront nor auction house found for review. Storefront/AuctionHouse ID: {}", [
+      saleAttestation.storefront.toHexString()
     ])
     return
   }
@@ -155,7 +191,7 @@ export function handleReviewSubmitted(event: ReviewSubmitted): void {
   review.saleAttestation = event.params.saleUID
   review.reviewer = event.params.reviewer
   review.reviewType = event.params.reviewer.equals(saleAttestation.buyer) ? "buyer" : "seller"
-  review.storefront = order.storefront
+  review.storefront = saleAttestation.storefront // This can be either storefront or auction house address
   review.overallRating = event.params.overallRating
   review.qualityRating = event.params.qualityRating
   review.communicationRating = event.params.communicationRating
@@ -174,19 +210,35 @@ export function handleReviewSubmitted(event: ReviewSubmitted): void {
 
   // Update storefront stats (only for buyer reviews)
   if (review.reviewType == "buyer") {
-    // Update rating totals
-    let newTotalRating = storefront.totalRating.plus(BigInt.fromI32(review.overallRating))
-    let newReviewCount = storefront.reviewCount.plus(BigInt.fromI32(1))
-    
-    storefront.totalRating = newTotalRating
-    storefront.reviewCount = newReviewCount
-    storefront.save()
-    
-    log.info("Updated storefront review stats - ID: {}, Total: {}, Count: {}", [
-      storefront.id.toHexString(),
-      storefront.totalRating.toString(),
-      storefront.reviewCount.toString()
-    ]);
+    if (storefrontEntity !== null) {
+      // Update rating totals for storefront
+      let newTotalRating = storefrontEntity.totalRating.plus(BigInt.fromI32(review.overallRating))
+      let newReviewCount = storefrontEntity.reviewCount.plus(BigInt.fromI32(1))
+      
+      storefrontEntity.totalRating = newTotalRating
+      storefrontEntity.reviewCount = newReviewCount
+      storefrontEntity.save()
+      
+      log.info("Updated storefront review stats - ID: {}, Total: {}, Count: {}", [
+        storefrontEntity.id.toHexString(),
+        storefrontEntity.totalRating.toString(),
+        storefrontEntity.reviewCount.toString()
+      ]);
+    } else if (auctionHouseEntity !== null) {
+      // For auction houses, we could track review stats similar to storefronts
+      // This would require adding totalRating and reviewCount fields to AuctionHouse entity
+      // For now, just log that this is an auction house review
+      log.info("Review submitted for auction house: {}, Rating: {}/5", [
+        auctionHouseEntity.id.toHexString(),
+        review.overallRating.toString()
+      ]);
+      
+      // If in the future we add review stats to AuctionHouse entity, update them here
+      // Example:
+      // auctionHouseEntity.totalRating = auctionHouseEntity.totalRating.plus(BigInt.fromI32(review.overallRating))
+      // auctionHouseEntity.reviewCount = auctionHouseEntity.reviewCount.plus(BigInt.fromI32(1))
+      // auctionHouseEntity.save()
+    }
   }
 
   log.info("Created review - UID: {}, Type: {}, Rating: {}/5", [

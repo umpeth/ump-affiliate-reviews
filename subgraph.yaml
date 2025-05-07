@@ -1,5 +1,5 @@
 specVersion: 0.0.5
-description: Unified Affiliate and Reviews Subgraph
+description: Unified Affiliate, Reviews, and Auction House Subgraph
 schema:
   file: ./schema.graphql
 dataSources:
@@ -9,7 +9,7 @@ dataSources:
     source:
       address: "0x59321B6B3AA8573DD33A6314cb48C6849Cd55C72" 
       abi: AffiliateERC1155StorefrontFactory
-      startBlock: 28301638 
+      startBlock: 29873485   
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -34,7 +34,7 @@ dataSources:
     source:
       address: "0xE07c41Bc76A8B56ad7E996cF60A3dDeD96ca575D"
       abi: AffiliateEscrowFactory
-      startBlock: 28301638
+      startBlock: 29873485  
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -57,7 +57,7 @@ dataSources:
     source:
       address: "0x0000000000000068F116a894984e2DB1123eB395"
       abi: Seaport
-      startBlock: 28301638
+      startBlock: 29873485  
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -82,7 +82,7 @@ dataSources:
     source:
       address: "0xD7dd33f5815E499DA3DeaB5C812489c5e454eD7E"
       abi: SaleAttestationResolver
-      startBlock: 28301638
+      startBlock: 29873485  
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -103,7 +103,7 @@ dataSources:
     source:
       address: "0xB09d28897dB473b66A31a3659ae5BA75A2Ad9703"  
       abi: ReviewResolver
-      startBlock: 28301638
+      startBlock: 29873485  
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -124,7 +124,7 @@ dataSources:
     source:
       address: "0xdFCA83ff7544Acb88B5D04A9101d58780243E0cb"
       abi: CurationStorefront
-      startBlock: 28301638 
+      startBlock: 29873485  
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -157,6 +157,53 @@ dataSources:
         - event: Transfer(indexed address,indexed address,indexed uint256)
           handler: handleTransfer
       file: ./src/curation-storefront.ts
+
+  - kind: ethereum
+    name: AuctionHouseFactory
+    network: base
+    source:
+      address: "0x8279B3D660453cbbf46B232b439A8Ab1cA647fa8"  
+      abi: AuctionHouseFactory
+      startBlock: 29873485
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - AuctionHouse
+      abis:
+        - name: AuctionHouseFactory
+          file: ./abis/AuctionHouseFactory.json
+        - name: AuctionHouse
+          file: ./abis/AuctionHouse.json
+      eventHandlers:
+        - event: AuctionHouseCreated(indexed address,indexed address,string,string,string,string,string,uint256)
+          handler: handleAuctionHouseCreated
+      file: ./src/auction-house-factory.ts
+
+  - kind: ethereum
+    name: AuctionItemERC721Factory
+    network: base
+    source:
+      address: "0xd87654c3aA2DBCd9c537bE51656C734e11E74896" 
+      abi: AuctionItemERC721Factory
+      startBlock: 29873485 
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - AuctionItemERC721
+      abis:
+        - name: AuctionItemERC721Factory
+          file: ./abis/AuctionItemERC721Factory.json
+        - name: AuctionItemERC721
+          file: ./abis/AuctionItemERC721.json
+      eventHandlers:
+        - event: AuctionItemERC721Created(indexed address,indexed address)
+          handler: handleAuctionItemERC721Created
+      file: ./src/auction-item-erc721-factory.ts
+
 templates:
   - name: AffiliateERC1155Storefront
     kind: ethereum/contract
@@ -191,6 +238,7 @@ templates:
           handler: handleSettleDeadlineUpdated
         - event: ERC1155TokenAddressChanged(indexed address,indexed address)
           handler: handleERC1155TokenAddressChanged
+  
   - name: AffiliateEscrow
     kind: ethereum/contract
     network: base
@@ -235,6 +283,74 @@ templates:
           handler: handleArbiterChangeProposed
         - event: ArbiterChangeApproved(indexed address,indexed address,indexed address)
           handler: handleArbiterChangeApproved
-          
+
+  - name: AuctionHouse
+    kind: ethereum/contract
+    network: base
+    source:
+      abi: AuctionHouse
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      file: ./src/auction-house.ts
+      entities:
+        - AuctionHouse
+        - Auction
+        - Bid
+        - EncryptedMessage
+        - PremiumPayment
+      abis:
+        - name: AuctionHouse
+          file: ./abis/AuctionHouse.json
+        - name: AuctionItemERC721
+          file: ./abis/AuctionItemERC721.json
+        - name: AffiliateEscrow
+          file: ./abis/AffiliateEscrow.json
+      eventHandlers:
+        - event: AuctionCreated(indexed uint256,indexed address,indexed address,address,uint256,uint256,uint256,uint16,address,address,bool)
+          handler: handleAuctionCreated
+        - event: BidCreated(indexed uint256,indexed address,indexed address,uint256,address,bytes,bytes,bytes,bytes,bool)
+          handler: handleBidCreated
+        - event: AuctionEncryptedMessage(indexed uint256,indexed address,indexed address,bytes,bytes,bytes,bytes,bool)
+          handler: handleAuctionEncryptedMessage
+        - event: PremiumPaid(indexed uint256,indexed address,indexed address,address,uint256,uint256)
+          handler: handlePremiumPaid
+        - event: AuctionExtended(indexed uint256,indexed address,uint256)
+          handler: handleAuctionExtended
+        - event: AuctionEnded(indexed uint256,indexed address,indexed address,address,uint256,uint256)
+          handler: handleAuctionEnded
+        - event: AuctionCancelled(indexed uint256,indexed address,indexed address)
+          handler: handleAuctionCancelled
+        - event: AuctionHouseMetadataUpdated(indexed address,string,string,string)
+          handler: handleAuctionHouseMetadataUpdated
+        - event: SettlementDeadlineUpdated(uint256)
+          handler: handleSettlementDeadlineUpdated
+
+  - name: AuctionItemERC721
+    kind: ethereum/contract
+    network: base
+    source:
+      abi: AuctionItemERC721
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      file: ./src/auction-item-erc721.ts
+      entities:
+        - AuctionItemERC721
+        - AuctionItemERC721Token
+        - AuctionItemERC721Metadata
+      abis:
+        - name: AuctionItemERC721
+          file: ./abis/AuctionItemERC721.json
+      eventHandlers:
+        - event: Transfer(indexed address,indexed address,indexed uint256)
+          handler: handleTransfer
+        - event: ContractURIUpdated(string)
+          handler: handleContractURIUpdated
+        - event: OwnershipChanged(indexed address,indexed address)
+          handler: handleOwnershipChanged
+
 features:
   - fullTextSearch
